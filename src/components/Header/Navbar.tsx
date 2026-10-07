@@ -19,6 +19,7 @@ interface NavbarProps {
   isStale: boolean;
   onOpenAddTour: () => void;
   onExport?: () => void; // hosted site only
+  exportPending?: boolean; // local edits not yet in the repo
 }
 
 export const Navbar: React.FC<NavbarProps> = ({
@@ -36,7 +37,8 @@ export const Navbar: React.FC<NavbarProps> = ({
   progress,
   isStale,
   onOpenAddTour,
-  onExport
+  onExport,
+  exportPending
 }) => {
   const isLoading = progress !== null;
 
@@ -112,11 +114,11 @@ export const Navbar: React.FC<NavbarProps> = ({
         {onExport && (
           <button
             onClick={onExport}
-            className="hidden lg:flex items-center space-x-1 px-2.5 py-1.5 rounded-xl text-xs font-semibold bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 cursor-pointer"
+            className={`flex items-center space-x-1 px-2.5 py-1.5 rounded-xl text-xs font-semibold border cursor-pointer ${exportPending ? 'bg-amber-500 hover:bg-amber-400 text-slate-950 border-amber-400' : 'bg-slate-800 hover:bg-slate-700 text-slate-200 border-slate-700'}`}
             title="Download tours.json and new GPX files to commit them to the repo"
           >
             <Download className="w-3.5 h-3.5 text-slate-400" />
-            <span>Export</span>
+            <span className="hidden sm:inline">{exportPending ? 'Export (nicht im Repo)' : 'Export'}</span>
           </button>
         )}
 

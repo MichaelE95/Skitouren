@@ -9,7 +9,7 @@ import { planAllTours, planTourJourney, DEFAULT_ORIGIN } from './services/transi
 import {
   loadSnapshot, saveSnapshot, withTourResult, withoutTour, isStale as snapshotIsStale, defaultDepartureLocal
 } from './services/transitSnapshot';
-import { loadTours, saveTour, deleteTour, exportOverlay, canWriteToRepo } from './services/tourStore';
+import { loadTours, saveTour, deleteTour, exportOverlay, canWriteToRepo, hasOverlayChanges } from './services/tourStore';
 import { formatDateTime } from './utils/format';
 
 import { Navbar } from './components/Header/Navbar';
@@ -182,6 +182,9 @@ export const App: React.FC = () => {
       });
   }, [tours, filters, snapshot]);
 
+  // Hosted site only: edits that live in this browser and are not in the repo yet
+  const exportPending = useMemo(() => !canWriteToRepo && hasOverlayChanges(), [tours]);
+
   const selectedTour = tours.find(t => t.id === selectedTourId) ?? null;
   const selectedResult = selectedTour ? snapshot?.results[selectedTour.id] : undefined;
   const selectedJourney = selectedResult && selectedResult.ok ? selectedResult.best : undefined;
@@ -207,6 +210,7 @@ export const App: React.FC = () => {
         progress={progress}
         isStale={stale || (snapshot === null && tours.length > 0)}
         onExport={canWriteToRepo ? undefined : () => exportOverlay()}
+        exportPending={exportPending}
       />
 
       <div className="flex-1 flex overflow-hidden relative">

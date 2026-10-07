@@ -29,6 +29,25 @@ export async function loadTours(): Promise<SkiTour[]> {
 
   const ov = loadOverlay();
   const map = new Map(base.map(t => [t.id, t]));
+
+  // Self-cleaning: once an exported change has been committed and deployed,
+  // the deployed tours.json matches the overlay entry -> drop it from localStorage.
+  let changed = false;
+  for (const [id, t] of Object.entries(ov.upserts)) {
+    const deployed = map.get(id);
+    if (deployed && JSON.stringify(deployed) === JSON.stringify(t)) {
+      delete ov.upserts[id];
+      delete ov.gpx[t.gpxFile];
+      changed = true;
+    }
+  }
+  const stillDeleted = ov.deleted.filter(id => map.has(id));
+  if (stillDeleted.length !== ov.deleted.length) {
+    ov.deleted = stillDeleted;
+    changed = true;
+  }
+  if (changed) saveOverlay(ov);
+
   for (const id of ov.deleted) map.delete(id);
   for (const t of Object.values(ov.upserts)) map.set(t.id, t);
   return Array.from(map.values());
