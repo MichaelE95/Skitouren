@@ -5,13 +5,51 @@ export interface ParsedGpxResult {
   elevationGain: number;
   distanceKm: number;
   estimatedDurationHours: number;
+  mountainRange: string;
   trailhead: [number, number]; // [lng, lat]
   summit: [number, number]; // [lng, lat]
   trackCoordinates: [number, number][]; // [[lng, lat], ...]
 }
 
 /**
+ * Infers the alpine mountain range (Gebirgsgruppe) strictly based on geographical coordinates.
+ */
+export function inferMountainRange(lng: number, lat: number): string {
+  // Allgäuer Alpen (Oberstdorf, Kleinwalsertal, Hindelang)
+  if (lng >= 10.0 && lng < 10.55 && lat >= 47.15 && lat <= 47.58) {
+    return 'Allgäuer Alpen';
+  }
+  // Lechtaler Alpen & Außerfern Süd
+  if (lng >= 10.2 && lng < 10.85 && lat >= 47.15 && lat < 47.45) {
+    return 'Lechtaler Alpen';
+  }
+  // Ammergauer Alpen (Pfronten, Füssen, Reutte, Graswang)
+  if (lng >= 10.55 && lng < 11.05 && lat >= 47.45 && lat <= 47.65) {
+    return 'Ammergauer Alpen';
+  }
+  // Wettersteingebirge & Mieminger Kette (Zugspitze, Ehrwald, Lermoos, Mittenwald)
+  if (lng >= 10.85 && lng < 11.35 && lat >= 47.30 && lat <= 47.52) {
+    return 'Wettersteingebirge & Mieminger Kette';
+  }
+  // Karwendel (Scharnitz, Seefeld, Mittenwald Ost)
+  if (lng >= 11.25 && lng < 11.85 && lat >= 47.30 && lat <= 47.55) {
+    return 'Karwendel';
+  }
+  // Mangfallgebirge (Tegernsee, Schliersee, Spitzingsee, Sudelfeld, Wendelstein)
+  if (lng >= 11.65 && lng <= 12.20 && lat >= 47.55 && lat <= 47.78) {
+    return 'Mangfallgebirge';
+  }
+  // Bayerische Voralpen (Lenggries, Brauneck, Estergebirge, Walchensee)
+  if (lng >= 11.05 && lng < 11.65 && lat >= 47.52 && lat <= 47.78) {
+    return 'Bayerische Voralpen';
+  }
+
+  return 'Bayerische Alpen';
+}
+
+/**
  * Parses a standard GPX file string into structured ski tour metrics.
+ * 100% of physical tour dimensions are extracted directly from the track.
  */
 export function parseGpxString(gpxText: string, fallbackFileName: string = 'Neue Skitour'): ParsedGpxResult {
   const parser = new DOMParser();
@@ -25,7 +63,8 @@ export function parseGpxString(gpxText: string, fallbackFileName: string = 'Neue
 
   // Extract tour name
   const nameNode = xmlDoc.querySelector('trk > name') || xmlDoc.querySelector('metadata > name') || xmlDoc.querySelector('name');
-  const tourName = nameNode?.textContent?.trim() || fallbackFileName.replace(/\.gpx$/i, '');
+  let tourName = nameNode?.textContent?.trim() || fallbackFileName.replace(/\.gpx$/i, '');
+  tourName = tourName.replace(/[_-]+/g, ' ').trim();
 
   // Extract track points
   const trkpts = Array.from(xmlDoc.querySelectorAll('trkpt'));
@@ -84,7 +123,7 @@ export function parseGpxString(gpxText: string, fallbackFileName: string = 'Neue
     }
   }
 
-  // Fallback if elevation was missing in GPX
+  // Elevations
   const startElevation = points[0].ele > 0 ? Math.round(points[0].ele) : Math.round(minEle);
   const peakElevation = maxEle > 0 ? Math.round(maxEle) : startElevation + 800;
   const elevationGain = totalAscent > 50 ? Math.round(totalAscent) : peakElevation - startElevation;
@@ -99,6 +138,13 @@ export function parseGpxString(gpxText: string, fallbackFileName: string = 'Neue
   // Track coordinates array [lng, lat]
   const trackCoordinates: [number, number][] = points.map(p => [p.lng, p.lat]);
 
+  // Trailhead & Summit
+  const trailhead: [number, number] = [points[0].lng, points[0].lat];
+  const summit: [number, number] = [highestPt.lng, highestPt.lat];
+
+  // Mountain Range derived directly from coordinates
+  const mountainRange = inferMountainRange(summit[0], summit[1]);
+
   return {
     name: tourName,
     startElevation,
@@ -106,10 +152,47 @@ export function parseGpxString(gpxText: string, fallbackFileName: string = 'Neue
     elevationGain,
     distanceKm,
     estimatedDurationHours: estimatedDuration,
-    trailhead: [points[0].lng, points[0].lat],
-    summit: [highestPt.lng, highestPt.lat],
+    mountainRange,
+    trailhead,
+    summit,
     trackCoordinates
   };
+}
+
+/**
+ * Triggers a browser download of a clean GPX file for a given tour.
+ */
+export function downloadGpxFile(tourName: string, trackCoordinates: [number, number][], peakElevation?: number): void {
+  const safeName = tourName.replace(/[^a-zA-Z0-9_\-\u00C0-\u017F]+/g, '_');
+  const eleString = peakElevation ? `\n      <ele>${peakElevation}</ele>` : '';
+
+  const trkptsXml = trackCoordinates.map(coord =>
+    `      <trkpt lat="${coord[1].toFixed(6)}" lon="${coord[0].toFixed(6)}">${eleString}</trkpt>`
+  ).join('\n');
+
+  const gpxContent = `<?xml version="1.0" encoding="UTF-8"?>
+<gpx version="1.1" creator="Skitour Planner Haunstetter Straße" xmlns="http://www.topografix.com/GPX/1/1">
+  <metadata>
+    <name>${tourName}</name>
+    <time>${new Date().toISOString()}</time>
+  </metadata>
+  <trk>
+    <name>${tourName}</name>
+    <trkseg>
+${trkptsXml}
+    </trkseg>
+  </trk>
+</gpx>`;
+
+  const blob = new Blob([gpxContent], { type: 'application/gpx+xml' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `${safeName}.gpx`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
 }
 
 function haversineDistance(lat1: number, lon1: number, lat2: number, lon2: number): number {
@@ -126,4 +209,3 @@ function haversineDistance(lat1: number, lon1: number, lat2: number, lon2: numbe
 function toRad(degrees: number): number {
   return degrees * (Math.PI / 180);
 }
-

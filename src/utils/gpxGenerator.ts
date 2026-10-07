@@ -13,7 +13,7 @@ export function downloadTourGpx(tour: SkiTour): void {
 <gpx version="1.1" creator="Skitour Haunstetter Strasse Planner" xmlns="http://www.topografix.com/GPX/1/1">
   <metadata>
     <name>${escapeXml(tour.name)} - Skitour</name>
-    <desc>${escapeXml(tour.subheading)} | Ausgangspunkt: Augsburg Haunstetter Str. | SAC: ${tour.difficulty}</desc>
+    <desc>${escapeXml(tour.name)} | SAC: ${tour.difficulty}</desc>
     <time>${new Date().toISOString()}</time>
   </metadata>
   <wpt lat="${tour.coordinates.trailhead[1]}" lon="${tour.coordinates.trailhead[0]}">

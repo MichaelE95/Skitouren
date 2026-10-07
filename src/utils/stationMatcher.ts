@@ -1,33 +1,57 @@
-import { KEY_STATIONS, TrainStation } from '../data/trainLines';
-import { TransitInfo, OriginStation, DTicketStatus } from '../types';
+import { getAllMasterStations, MasterStation } from '../data/trainLines';
+import { DTicketStatus } from '../types';
 
 export interface StationMatchResult {
-  station: TrainStation;
+  station: MasterStation;
   walkingDistanceMeters: number;
   walkingDurationMinutes: number;
   cleanDbStationName: string;
-  approxTotalMinutes: number;
   dTicketValidity: DTicketStatus;
   extraCostEuro: number;
-  suggestedLines: string[];
-  description: string;
 }
 
 /**
- * Finds the closest transit station to a given coordinate [lng, lat],
- * and computes walking duration and approximate transit time.
+ * Calculates distance between two WGS-84 coordinates in meters using the Haversine formula.
+ */
+export function calculateDistanceMeters(
+  lat1: number,
+  lon1: number,
+  lat2: number,
+  lon2: number
+): number {
+  const R = 6371e3; // Earth radius in meters
+  const phi1 = (lat1 * Math.PI) / 180;
+  const phi2 = (lat2 * Math.PI) / 180;
+  const deltaPhi = ((lat2 - lat1) * Math.PI) / 180;
+  const deltaLambda = ((lon2 - lon1) * Math.PI) / 180;
+
+  const a =
+    Math.sin(deltaPhi / 2) * Math.sin(deltaPhi / 2) +
+    Math.cos(phi1) * Math.cos(phi2) * Math.sin(deltaLambda / 2) * Math.sin(deltaLambda / 2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+
+  return Math.round(R * c);
+}
+
+/**
+ * Finds the closest transit station / bus stop to a given trailhead coordinate [lng, lat].
+ * Strictly calculates walking distance and time from station coordinates to trailhead coordinates.
  */
 export function findClosestStation(
-  coords: [number, number],
-  origin: OriginStation
+  trailheadCoords: [number, number]
 ): StationMatchResult {
-  const [lng, lat] = coords;
-  let bestStation = KEY_STATIONS[1];
+  const [lng, lat] = trailheadCoords;
+  const allStations = getAllMasterStations();
+
+  // Exclude primary northern hub origins that are far in the plains
+  const candidateStations = allStations.filter(s =>
+    !['augsburg-haunstetter-str', 'augsburg-hbf', 'muenchen-hbf', 'muenchen-pasing', 'buchloe', 'kaufering'].includes(s.id)
+  );
+
+  let bestStation = candidateStations[0] || allStations[0];
   let minDistanceMeters = Infinity;
 
-  // Check all alpine stations (excluding origin)
-  for (const st of KEY_STATIONS) {
-    if (st.isOrigin) continue;
+  for (const st of candidateStations) {
     const dist = calculateDistanceMeters(lat, lng, st.coordinates[1], st.coordinates[0]);
     if (dist < minDistanceMeters) {
       minDistanceMeters = dist;
@@ -35,92 +59,40 @@ export function findClosestStation(
     }
   }
 
-  return buildStationTransitInfo(bestStation, minDistanceMeters, origin);
+  return buildStationTransitResult(bestStation, minDistanceMeters);
 }
 
 /**
- * Builds transit information for a specific chosen station.
+ * Builds transit parameters for a chosen station and walking distance.
  */
-export function buildStationTransitInfo(
-  station: TrainStation,
-  walkingDistanceMeters: number,
-  origin: OriginStation
+export function buildStationTransitResult(
+  station: MasterStation,
+  walkingDistanceMeters: number
 ): StationMatchResult {
   // Walking time at ~4.2 km/h (70 m/min)
   const walkingDurationMinutes = Math.round(walkingDistanceMeters / 70);
 
-  // Sanitize clean DB station name for bahn.de routing
-  let cleanDbStationName = station.name
-    .replace(/^Bahnhof\s+/i, '')
-    .replace(/\s+Bhf$/i, '')
-    .replace(/\s*\(.*\)$/g, '')
-    .trim();
+  // Clean DB station name recognized by bahn.de routing
+  const cleanDbStationName = station.cleanDbName || station.name;
 
-  // Determine transit lines and duration based on station
-  let suggestedLines: string[] = ['BRB RB 69', 'RE 17'];
-  let approxTransitMinutes = 120;
+  // D-Ticket validity based on station location
   let dTicketValidity: DTicketStatus = '100% gültig';
   let extraCostEuro = 0;
 
-  if (station.id.includes('oberstdorf') || station.id.includes('baad') || station.id.includes('riezlern')) {
-    suggestedLines = ['BRB RB 69', 'RE 17', 'Walserbus 1'];
-    approxTransitMinutes = 135;
-    cleanDbStationName = 'Oberstdorf';
-  } else if (station.id.includes('pfronten')) {
-    suggestedLines = ['BRB RB 69', 'RE 17', 'RB 73'];
-    approxTransitMinutes = 120;
-    cleanDbStationName = 'Pfronten-Steinach';
-  } else if (station.id.includes('fuessen')) {
-    suggestedLines = ['BRB RB 77'];
-    approxTransitMinutes = 110;
-    cleanDbStationName = 'Füssen';
-  } else if (station.id.includes('lermoos') || station.id.includes('laehn') || station.id.includes('bichlbach') || station.id.includes('ehrwald')) {
-    suggestedLines = ['MEX 16', 'RB 60 Außerfernbahn'];
-    approxTransitMinutes = 140;
-    cleanDbStationName = station.name.replace(/^Bahnhof\s+/i, '').trim();
-  } else if (station.id.includes('garmisch')) {
-    suggestedLines = ['MEX 16', 'RB 6 Werdenfelsbahn'];
-    approxTransitMinutes = 115;
-    cleanDbStationName = 'Garmisch-Partenkirchen';
-  } else if (station.id.includes('mittenwald')) {
-    suggestedLines = ['MEX 16', 'RB 6 Werdenfelsbahn'];
-    approxTransitMinutes = 130;
-    cleanDbStationName = 'Mittenwald';
-  } else if (station.id.includes('scharnitz')) {
-    suggestedLines = ['MEX 16', 'RB 6 / S6'];
-    approxTransitMinutes = 140;
-    cleanDbStationName = 'Scharnitz';
-  } else if (station.id.includes('seefeld')) {
-    suggestedLines = ['MEX 16', 'S6'];
-    approxTransitMinutes = 150;
+  if (station.id === 'seefeld' || station.name.toLowerCase().includes('seefeld')) {
     dTicketValidity = 'Zusatzkosten nötig';
     extraCostEuro = 3.80;
-    cleanDbStationName = 'Seefeld in Tirol';
+  } else if (station.id.includes('tannheim') || station.id.includes('nesselwaengle')) {
+    dTicketValidity = 'Zusatzkosten nötig';
+    extraCostEuro = 4.00;
   }
-
-  const approxTotalMinutes = approxTransitMinutes + walkingDurationMinutes;
 
   return {
     station,
-    walkingDistanceMeters: Math.round(walkingDistanceMeters),
+    walkingDistanceMeters,
     walkingDurationMinutes,
     cleanDbStationName,
-    approxTotalMinutes,
     dTicketValidity,
-    extraCostEuro,
-    suggestedLines,
-    description: `Ab ${origin.name} mit ${suggestedLines.join(' → ')} bis ${station.name}. Anschließend ca. ${walkingDurationMinutes} min Fußweg (${Math.round(walkingDistanceMeters)} m) zum Tour-Startpunkt.`
+    extraCostEuro
   };
 }
-
-function calculateDistanceMeters(lat1: number, lon1: number, lat2: number, lon2: number): number {
-  const R = 6371000; // Earth radius in meters
-  const dLat = (lat2 - lat1) * (Math.PI / 180);
-  const dLon = (lon2 - lon1) * (Math.PI / 180);
-  const a =
-    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-    Math.cos(lat1 * (Math.PI / 180)) * Math.cos(lat2 * (Math.PI / 180)) * Math.sin(dLon / 2) * Math.sin(dLon / 2);
-  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-  return R * c;
-}
-

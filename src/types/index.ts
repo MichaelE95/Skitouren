@@ -9,14 +9,6 @@ export type SACCategory = 'L' | 'WS' | 'ZS' | 'S';
 
 export type DTicketStatus = '100% gültig' | 'Zusatzkosten nötig';
 
-export interface TransitStep {
-  station: string;
-  action: 'departure' | 'transfer' | 'arrival' | 'bus' | 'walk';
-  line?: string;
-  timeHint?: string;
-  note?: string;
-}
-
 export interface LiveJourneyLeg {
   lineName: string;
   mode: string;
@@ -38,31 +30,31 @@ export interface LiveJourneyResult {
   source: 'transitous' | 'estimate';
 }
 
-export interface OriginStation {
+export interface MasterStation {
   id: string;
   name: string;
-  ibnr: string;
+  ibnr?: string;
   eva?: string;
   cleanDbName?: string;
   coordinates: [number, number]; // [lng, lat]
+  type?: 'rail' | 'bus';
+  dTicketNotice?: string;
+  isCustom?: boolean;
   note?: string;
 }
 
+export type OriginStation = MasterStation;
+
 export interface TransitInfo {
-  origin: string; // e.g. "Augsburg Haunstetter Str."
-  destinationStation: string; // Display destination (e.g. "Baad", "Riezlern Kanzelwandbahn")
-  cleanDbStationName: string; // Sanitized station name recognized by bahn.de (e.g. "Oberstdorf", "Pfronten-Steinach")
-  destinationIbnr: string; // DB Station IBNR
-  destinationEva?: string; // DB EVA ID
-  lines: string[]; // e.g. ["BRB RB 69", "RE 17", "Walserbus 1"]
-  transfers: number;
-  approxTotalMinutes: number;
+  origin: string; // Active origin station name
+  destinationStation: string; // Display destination
+  cleanDbStationName: string; // Sanitized station name for bahn.de / routing
+  destinationIbnr: string;
+  destinationEva: string;
   walkingDistanceMeters: number;
   walkingDurationMinutes: number;
   dTicketValidity: DTicketStatus;
   extraCostEuro: number;
-  transitDescription: string;
-  steps: TransitStep[];
   liveJourney?: LiveJourneyResult;
 }
 
@@ -76,9 +68,8 @@ export interface DavHut {
 
 export interface UserTourMeta {
   tourId: string;
-  peakName: string;
-  skitourenguruUrl: string;
-  isVerifiedUrl: boolean;
+  peakName?: string;
+  skitourenguruUrl?: string;
   rating: number | null; // null = noch nicht gemacht / unrated; 1 to 5
   comment: string;
   manualStationOverride?: string;
@@ -87,25 +78,24 @@ export interface UserTourMeta {
 
 export interface SkiTour {
   id: string;
-  name: string;
-  subheading: string;
+  name: string; // Gipfel / Tour Name
   mountainRange: string;
-  valley: string;
+  valley?: string;
   type: 'day' | 'multiday';
   isPiste: boolean;
   
-  // Elevation & distance
+  // Elevation & distance (strictly derived from GPX)
   startElevation: number; // m
   peakElevation: number; // m
   elevationGain: number; // hm
   distanceKm: number; // km
-  estimatedTourDurationHours: number;
+  estimatedTourDurationHours: number; // calculated from DIN 33466 / SAC
 
   // Technical ratings
   difficulty: SACGrade;
   difficultyCategory: SACCategory;
-  maxSafeAvalancheLevel: number;
-  exposition: string;
+  maxSafeAvalancheLevel?: number;
+  exposition?: string;
 
   // Geolocation [longitude, latitude]
   coordinates: {
@@ -114,13 +104,12 @@ export interface SkiTour {
   };
   gpxTrackCoordinates: [number, number][];
 
-  // Public transit from origin station
+  // Public transit
   transit: TransitInfo;
 
   // External links & resources
   links: {
-    skitourenguruUrl: string;
-    isVerifiedUrl: boolean; // false triggers a yellow verification warning badge
+    skitourenguruUrl?: string; // Optional - empty by default, no guessing
     gpxDownloadUrl?: string;
     alpenvereinUrl?: string;
     webcamUrl?: string;
@@ -131,9 +120,8 @@ export interface SkiTour {
 
   // User metadata (rating, comment)
   rating: number | null; // null = not yet done
-  curatedComment: string;
-  tips: string[];
-  isCustomTour?: boolean; // true if added by user
+  curatedComment: string; // User notes
+  isCustomTour?: boolean; // true if created by user
 }
 
 export interface AvalancheRegion {

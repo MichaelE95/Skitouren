@@ -1,17 +1,17 @@
 import React, { useEffect, useRef, useState } from 'react';
 import maplibregl from 'maplibre-gl';
 import 'maplibre-gl/dist/maplibre-gl.css';
-import { SkiTour, AvalancheRegion, OriginStation } from '../../types';
-import { TRANSIT_LINES, KEY_STATIONS } from '../../data/trainLines';
+import { SkiTour, AvalancheRegion, MasterStation } from '../../types';
+import { getAllMasterStations } from '../../data/trainLines';
 import { EAWS_COLORS } from '../../data/avalancheData';
-import { Eye, EyeOff, Train, ShieldAlert, MapPin, Footprints } from 'lucide-react';
+import { Eye, EyeOff, ShieldAlert, Footprints } from 'lucide-react';
 
 interface AlpineMapProps {
   tours: SkiTour[];
   selectedTour: SkiTour | null;
   onSelectTour: (tour: SkiTour) => void;
   avalancheRegions: AvalancheRegion[];
-  originStation: OriginStation;
+  originStation: MasterStation;
 }
 
 type BaseMapStyle = 'topo' | 'osm' | 'satellite';
@@ -28,7 +28,6 @@ export const AlpineMap: React.FC<AlpineMapProps> = ({
   const markersRef = useRef<maplibregl.Marker[]>([]);
 
   const [showAvalancheLayer, setShowAvalancheLayer] = useState(true);
-  const [showTransitLayer, setShowTransitLayer] = useState(true);
   const [baseStyle, setBaseStyle] = useState<BaseMapStyle>('topo');
   const [hoveredInfo, setHoveredInfo] = useState<string | null>(null);
 
@@ -43,7 +42,7 @@ export const AlpineMap: React.FC<AlpineMapProps> = ({
       zoom: 8.5,
       pitch: 0,
       bearing: 0,
-      maxPitch: 0 // Keep strictly 2D for rock-solid stability
+      maxPitch: 0 // Strict 2D
     });
 
     map.addControl(new maplibregl.NavigationControl({ showCompass: false }), 'top-right');
@@ -51,8 +50,8 @@ export const AlpineMap: React.FC<AlpineMapProps> = ({
 
     map.on('load', () => {
       addAvalancheLayers(map, avalancheRegions);
-      addTransitLayers(map);
       addActiveTrackLayers(map);
+      updateSelectedTourTrack(selectedTour);
     });
 
     mapRef.current = map;
@@ -71,7 +70,6 @@ export const AlpineMap: React.FC<AlpineMapProps> = ({
     map.setStyle(getMapStyle(baseStyle));
     map.once('style.load', () => {
       addAvalancheLayers(map, avalancheRegions);
-      addTransitLayers(map);
       addActiveTrackLayers(map);
       updateSelectedTourTrack(selectedTour);
     });
@@ -109,7 +107,6 @@ export const AlpineMap: React.FC<AlpineMapProps> = ({
       data: geojson
     });
 
-    // Fill layer: if off-season, use subtle transparent slate; if active winter, use EAWS color
     map.addLayer({
       id: 'avalanche-fill',
       type: 'fill',
@@ -121,23 +118,22 @@ export const AlpineMap: React.FC<AlpineMapProps> = ({
         'fill-color': [
           'case',
           ['!', ['get', 'isSeasonActive']],
-          '#94a3b8', // Subtle neutral gray during off-season
-          [
-            'match',
-            ['get', 'dangerLevel'],
-            1, '#ccff66',
-            2, '#ffff00',
-            3, '#ff9900',
-            4, '#ff0000',
-            5, '#800000',
-            '#cccccc'
-          ]
+          '#94a3b8',
+          ['==', ['get', 'dangerLevel'], 1],
+          EAWS_COLORS[1].bg,
+          ['==', ['get', 'dangerLevel'], 2],
+          EAWS_COLORS[2].bg,
+          ['==', ['get', 'dangerLevel'], 3],
+          EAWS_COLORS[3].bg,
+          ['==', ['get', 'dangerLevel'], 4],
+          EAWS_COLORS[4].bg,
+          EAWS_COLORS[5].bg
         ],
         'fill-opacity': [
           'case',
           ['!', ['get', 'isSeasonActive']],
-          0.08, // Very subtle during off-season
-          0.28
+          0.12,
+          0.32
         ]
       }
     });
@@ -177,93 +173,16 @@ export const AlpineMap: React.FC<AlpineMapProps> = ({
     });
   };
 
-  // Add Transit Overlay
-  const addTransitLayers = (map: maplibregl.Map) => {
-    const geojson: GeoJSON.FeatureCollection = {
-      type: 'FeatureCollection',
-      features: TRANSIT_LINES.map(line => ({
-        type: 'Feature',
-        properties: {
-          id: line.id,
-          name: line.name,
-          color: line.color,
-          category: line.category,
-          dTicket: line.dTicketStatus
-        },
-        geometry: {
-          type: 'LineString',
-          coordinates: line.coordinates
-        }
-      }))
-    };
-
-    if (map.getSource('transit-lines')) {
-      (map.getSource('transit-lines') as maplibregl.GeoJSONSource).setData(geojson);
-      return;
-    }
-
-    map.addSource('transit-lines', {
-      type: 'geojson',
-      data: geojson
-    });
-
-    map.addLayer({
-      id: 'transit-lines-casing',
-      type: 'line',
-      source: 'transit-lines',
-      layout: {
-        'line-cap': 'round',
-        'line-join': 'round',
-        visibility: showTransitLayer ? 'visible' : 'none'
-      },
-      paint: {
-        'line-color': '#ffffff',
-        'line-width': 5,
-        'line-opacity': 0.85
-      }
-    });
-
-    map.addLayer({
-      id: 'transit-lines',
-      type: 'line',
-      source: 'transit-lines',
-      layout: {
-        'line-cap': 'round',
-        'line-join': 'round',
-        visibility: showTransitLayer ? 'visible' : 'none'
-      },
-      paint: {
-        'line-color': ['get', 'color'],
-        'line-width': 3,
-        'line-dasharray': [
-          'case',
-          ['==', ['get', 'category'], 'bus'],
-          ['literal', [2, 2]],
-          ['literal', [1]]
-        ]
-      }
-    });
-
-    map.on('mouseenter', 'transit-lines', (e) => {
-      if (e.features && e.features[0]) {
-        const props = e.features[0].properties;
-        setHoveredInfo(`🚆 ${props.name} | D-Ticket: ${props.dTicket}`);
-      }
-    });
-
-    map.on('mouseleave', 'transit-lines', () => {
-      setHoveredInfo(null);
-    });
-  };
-
-  // Add Active Tour Track Layers
+  // Add Active Tour Track Layers (Ski Tour GPX + Walking Connection to Station)
   const addActiveTrackLayers = (map: maplibregl.Map) => {
+    // 1. Ski Tour GPX Track
     if (!map.getSource('active-tour-track')) {
       map.addSource('active-tour-track', {
         type: 'geojson',
         data: { type: 'FeatureCollection', features: [] }
       });
 
+      // Outer glow for great contrast on satellite & topo
       map.addLayer({
         id: 'active-tour-track-glow',
         type: 'line',
@@ -271,8 +190,8 @@ export const AlpineMap: React.FC<AlpineMapProps> = ({
         layout: { 'line-cap': 'round', 'line-join': 'round' },
         paint: {
           'line-color': '#0284c7',
-          'line-width': 7,
-          'line-opacity': 0.5,
+          'line-width': 8,
+          'line-opacity': 0.6,
           'line-blur': 2
         }
       });
@@ -283,13 +202,34 @@ export const AlpineMap: React.FC<AlpineMapProps> = ({
         source: 'active-tour-track',
         layout: { 'line-cap': 'round', 'line-join': 'round' },
         paint: {
-          'line-color': '#0369a1',
-          'line-width': 3.5
+          'line-color': '#38bdf8',
+          'line-width': 4
+        }
+      });
+    }
+
+    // 2. Walking Path from Station to Trailhead
+    if (!map.getSource('active-walk-track')) {
+      map.addSource('active-walk-track', {
+        type: 'geojson',
+        data: { type: 'FeatureCollection', features: [] }
+      });
+
+      map.addLayer({
+        id: 'active-walk-track',
+        type: 'line',
+        source: 'active-walk-track',
+        layout: { 'line-cap': 'round', 'line-join': 'round' },
+        paint: {
+          'line-color': '#16a34a',
+          'line-width': 3,
+          'line-dasharray': [2, 2]
         }
       });
     }
   };
 
+  // Update selected tour track
   const updateSelectedTourTrack = (tour: SkiTour | null) => {
     const map = mapRef.current;
     if (!map || !map.getSource('active-tour-track')) return;
@@ -299,9 +239,16 @@ export const AlpineMap: React.FC<AlpineMapProps> = ({
         type: 'FeatureCollection',
         features: []
       });
+      if (map.getSource('active-walk-track')) {
+        (map.getSource('active-walk-track') as maplibregl.GeoJSONSource).setData({
+          type: 'FeatureCollection',
+          features: []
+        });
+      }
       return;
     }
 
+    // Highlight GPX ski tour track
     (map.getSource('active-tour-track') as maplibregl.GeoJSONSource).setData({
       type: 'FeatureCollection',
       features: [
@@ -315,13 +262,36 @@ export const AlpineMap: React.FC<AlpineMapProps> = ({
         }
       ]
     });
+
+    // Find destination station coordinates to draw walk connection
+    const allStations = getAllMasterStations();
+    const destStation = allStations.find(s =>
+      s.name === tour.transit.destinationStation ||
+      s.cleanDbName === tour.transit.cleanDbStationName
+    );
+
+    if (destStation && map.getSource('active-walk-track')) {
+      (map.getSource('active-walk-track') as maplibregl.GeoJSONSource).setData({
+        type: 'FeatureCollection',
+        features: [
+          {
+            type: 'Feature',
+            properties: { name: 'Fußweg zum Einstieg' },
+            geometry: {
+              type: 'LineString',
+              coordinates: [destStation.coordinates, tour.coordinates.trailhead]
+            }
+          }
+        ]
+      });
+    }
   };
 
   useEffect(() => {
     updateSelectedTourTrack(selectedTour);
   }, [selectedTour]);
 
-  // Update visibility toggles
+  // Update avalanche layer visibility toggle
   useEffect(() => {
     const map = mapRef.current;
     if (!map) return;
@@ -332,13 +302,7 @@ export const AlpineMap: React.FC<AlpineMapProps> = ({
     if (map.getLayer('avalanche-line')) {
       map.setLayoutProperty('avalanche-line', 'visibility', showAvalancheLayer ? 'visible' : 'none');
     }
-    if (map.getLayer('transit-lines')) {
-      map.setLayoutProperty('transit-lines', 'visibility', showTransitLayer ? 'visible' : 'none');
-    }
-    if (map.getLayer('transit-lines-casing')) {
-      map.setLayoutProperty('transit-lines-casing', 'visibility', showTransitLayer ? 'visible' : 'none');
-    }
-  }, [showAvalancheLayer, showTransitLayer]);
+  }, [showAvalancheLayer]);
 
   // Render Tour Markers & Origin Pin
   useEffect(() => {
@@ -349,11 +313,11 @@ export const AlpineMap: React.FC<AlpineMapProps> = ({
     markersRef.current.forEach(m => m.remove());
     markersRef.current = [];
 
-    // Origin Station Pin (Updates dynamically when originStation changes!)
+    // Origin Station Pin
     const originEl = document.createElement('div');
     originEl.className = 'flex flex-col items-center cursor-pointer group z-20';
     originEl.innerHTML = `
-      <div class="px-2.5 py-1 bg-red-600 text-white font-bold text-xs rounded-full shadow-lg border-2 border-white flex items-center space-x-1 animate-pulse">
+      <div class="px-2.5 py-1 bg-red-600 text-white font-bold text-xs rounded-full shadow-lg border-2 border-white flex items-center space-x-1">
         <span>📍 Start: ${originStation.name}</span>
       </div>
       <div class="w-2.5 h-2.5 bg-red-600 rotate-45 -mt-1 shadow-sm"></div>
@@ -363,16 +327,38 @@ export const AlpineMap: React.FC<AlpineMapProps> = ({
       .addTo(map);
     markersRef.current.push(originMarker);
 
-    // Key Alpine Transit Stations
-    KEY_STATIONS.filter(s => s.id !== originStation.id && s.isKeyHub).forEach(station => {
-      const stEl = document.createElement('div');
-      stEl.className = 'w-3 h-3 bg-white border-2 border-slate-700 rounded-full shadow hover:scale-125 transition-transform';
-      stEl.title = `Bahnhof: ${station.name}`;
-      const marker = new maplibregl.Marker({ element: stEl })
-        .setLngLat(station.coordinates)
-        .addTo(map);
-      markersRef.current.push(marker);
-    });
+    // Selected Tour Destination Station Pin (if a tour is active)
+    if (selectedTour) {
+      const allStations = getAllMasterStations();
+      const destStation = allStations.find(s =>
+        s.name === selectedTour.transit.destinationStation ||
+        s.cleanDbName === selectedTour.transit.cleanDbStationName
+      );
+
+      if (destStation) {
+        const destEl = document.createElement('div');
+        destEl.className = 'flex flex-col items-center cursor-pointer z-25';
+        destEl.innerHTML = `
+          <div class="px-2 py-0.5 bg-sky-700 text-white font-bold text-[11px] rounded-full shadow-md border border-white flex items-center space-x-1">
+            <span>🚆 Ziel: ${destStation.name}</span>
+          </div>
+          <div class="w-2 h-2 bg-sky-700 rotate-45 -mt-1 shadow-xs"></div>
+        `;
+        const destMarker = new maplibregl.Marker({ element: destEl })
+          .setLngLat(destStation.coordinates)
+          .addTo(map);
+        markersRef.current.push(destMarker);
+
+        // Trailhead start pin
+        const thEl = document.createElement('div');
+        thEl.className = 'w-3.5 h-3.5 bg-emerald-600 border-2 border-white rounded-full shadow-md';
+        thEl.title = `Einstieg: ${selectedTour.name}`;
+        const thMarker = new maplibregl.Marker({ element: thEl })
+          .setLngLat(selectedTour.coordinates.trailhead)
+          .addTo(map);
+        markersRef.current.push(thMarker);
+      }
+    }
 
     // Tour Summit Markers
     tours.forEach(tour => {
@@ -449,7 +435,7 @@ export const AlpineMap: React.FC<AlpineMapProps> = ({
             <button
               onClick={() => setBaseStyle('topo')}
               className={`px-2 py-1 rounded-md font-medium text-[11px] transition-colors ${
-                baseStyle === 'topo' ? 'bg-white text-alpine-700 shadow-sm' : 'text-slate-600 hover:text-slate-900'
+                baseStyle === 'topo' ? 'bg-white text-alpine-700 shadow-xs' : 'text-slate-600 hover:text-slate-900'
               }`}
               title="Topografische Reliefkarte (OpenTopoMap)"
             >
@@ -458,7 +444,7 @@ export const AlpineMap: React.FC<AlpineMapProps> = ({
             <button
               onClick={() => setBaseStyle('osm')}
               className={`px-2 py-1 rounded-md font-medium text-[11px] transition-colors ${
-                baseStyle === 'osm' ? 'bg-white text-alpine-700 shadow-sm' : 'text-slate-600 hover:text-slate-900'
+                baseStyle === 'osm' ? 'bg-white text-alpine-700 shadow-xs' : 'text-slate-600 hover:text-slate-900'
               }`}
               title="OpenStreetMap Standardkarte"
             >
@@ -467,7 +453,7 @@ export const AlpineMap: React.FC<AlpineMapProps> = ({
             <button
               onClick={() => setBaseStyle('satellite')}
               className={`px-2 py-1 rounded-md font-medium text-[11px] transition-colors ${
-                baseStyle === 'satellite' ? 'bg-white text-alpine-700 shadow-sm' : 'text-slate-600 hover:text-slate-900'
+                baseStyle === 'satellite' ? 'bg-white text-alpine-700 shadow-xs' : 'text-slate-600 hover:text-slate-900'
               }`}
               title="Satelliten-Orthofoto"
             >
@@ -492,50 +478,6 @@ export const AlpineMap: React.FC<AlpineMapProps> = ({
             </span>
             {showAvalancheLayer ? <Eye className="w-3.5 h-3.5 text-amber-700" /> : <EyeOff className="w-3.5 h-3.5" />}
           </button>
-
-          {/* Train Lines Layer Toggle */}
-          <button
-            onClick={() => setShowTransitLayer(!showTransitLayer)}
-            className={`flex items-center justify-between px-2.5 py-1.5 rounded-lg transition-colors font-medium ${
-              showTransitLayer 
-                ? 'bg-blue-500/15 text-blue-900 font-semibold border border-blue-300/60' 
-                : 'text-slate-600 hover:bg-slate-100'
-            }`}
-          >
-            <span className="flex items-center space-x-1.5">
-              <Train className="w-3.5 h-3.5 text-blue-600" />
-              <span>Öffi-Bahnlinien</span>
-            </span>
-            {showTransitLayer ? <Eye className="w-3.5 h-3.5 text-blue-700" /> : <EyeOff className="w-3.5 h-3.5" />}
-          </button>
-        </div>
-      </div>
-
-      {/* Legend Box Bottom-Right */}
-      <div className="absolute bottom-6 right-3 z-10 bg-white/95 backdrop-blur-md rounded-xl p-2.5 shadow-lg border border-slate-200/90 text-xs hidden sm:block max-w-[230px]">
-        <div className="font-bold text-slate-800 mb-1.5 flex items-center justify-between">
-          <span>Legende</span>
-          <span className="text-[10px] text-slate-500 font-normal">Start: {originStation.name}</span>
-        </div>
-
-        {/* Transit lines preview */}
-        <div className="space-y-1 text-[11px] text-slate-700">
-          <div className="flex items-center space-x-1.5">
-            <span className="w-3 h-1 bg-[#0284c7] rounded-full inline-block"></span>
-            <span className="truncate">RE 17 Allgäu / Oberstdorf</span>
-          </div>
-          <div className="flex items-center space-x-1.5">
-            <span className="w-3 h-1 bg-[#16a34a] rounded-full inline-block"></span>
-            <span className="truncate">RB 60 Außerfernbahn</span>
-          </div>
-          <div className="flex items-center space-x-1.5">
-            <span className="w-3 h-1 bg-[#8b5cf6] rounded-full inline-block"></span>
-            <span className="truncate">RB 6 Werdenfels / Karwendel</span>
-          </div>
-          <div className="flex items-center space-x-1.5">
-            <span className="w-3 h-1 bg-[#06b6d4] border-b border-dashed border-white rounded-full inline-block"></span>
-            <span className="truncate">Walserbus 1 (100% D-Ticket)</span>
-          </div>
         </div>
       </div>
     </div>
@@ -552,11 +494,17 @@ function getMapStyle(style: BaseMapStyle): maplibregl.StyleSpecification {
           type: 'raster',
           tiles: ['https://tile.openstreetmap.org/{z}/{x}/{y}.png'],
           tileSize: 256,
-          attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
+          attribution: '&copy; OpenStreetMap contributors'
         }
       },
       layers: [
-        { id: 'osm-layer', type: 'raster', source: 'osm-tiles', minzoom: 0, maxzoom: 19 }
+        {
+          id: 'osm-layer',
+          type: 'raster',
+          source: 'osm-tiles',
+          minzoom: 0,
+          maxzoom: 19
+        }
       ]
     };
   }
@@ -567,33 +515,45 @@ function getMapStyle(style: BaseMapStyle): maplibregl.StyleSpecification {
       sources: {
         'satellite-tiles': {
           type: 'raster',
-          tiles: ['https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}'],
+          tiles: [
+            'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}'
+          ],
           tileSize: 256,
-          attribution: 'Tiles &copy; Esri, i-cubed, USDA, USGS'
+          attribution: '&copy; Esri &mdash; Source: Esri, i-cubed, USDA, USGS, AEX, GeoEye, Getmapping, Aerogrid, IGN, IGP, UPR-EGP, and the GIS User Community'
         }
       },
       layers: [
-        { id: 'satellite-layer', type: 'raster', source: 'satellite-tiles', minzoom: 0, maxzoom: 19 }
+        {
+          id: 'satellite-layer',
+          type: 'raster',
+          source: 'satellite-tiles',
+          minzoom: 0,
+          maxzoom: 18
+        }
       ]
     };
   }
 
+  // Default: Topographic Map (OpenTopoMap)
   return {
     version: 8,
     sources: {
-      'opentopomap-tiles': {
+      'opentopo-tiles': {
         type: 'raster',
-        tiles: [
-          'https://a.tile.opentopomap.org/{z}/{x}/{y}.png',
-          'https://b.tile.opentopomap.org/{z}/{x}/{y}.png',
-          'https://c.tile.opentopomap.org/{z}/{x}/{y}.png'
-        ],
+        tiles: ['https://tile.opentopomap.org/{z}/{x}/{y}.png'],
         tileSize: 256,
-        attribution: 'Kartendaten: &copy; OpenStreetMap, SRTM | OpenTopoMap'
+        maxzoom: 17,
+        attribution: 'Map data &copy; OpenStreetMap contributors, SRTM | Map style &copy; OpenTopoMap (CC-BY-SA)'
       }
     },
     layers: [
-      { id: 'opentopomap-layer', type: 'raster', source: 'opentopomap-tiles', minzoom: 0, maxzoom: 18 }
+      {
+        id: 'opentopo-layer',
+        type: 'raster',
+        source: 'opentopo-tiles',
+        minzoom: 0,
+        maxzoom: 17
+      }
     ]
   };
 }

@@ -1,31 +1,30 @@
-import React, { useState, useMemo, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import { SkiTour, AvalancheRegion, MasterStation, FilterState, LiveJourneyResult } from './types';
 import { SKI_TOURS } from './data/tours';
-import { FALLBACK_AVALANCHE_REGIONS } from './data/avalancheData';
-import { DEFAULT_ORIGIN_STATION, POPULAR_ORIGIN_STATIONS } from './data/trainLines';
+import { DEFAULT_ORIGIN_STATION } from './data/trainLines';
 import { fetchAvalancheRegions, getTourAvalancheRisk } from './services/avalancheService';
+import { FALLBACK_AVALANCHE_REGIONS } from './data/avalancheData';
 import { fetchBatchTourTimetables } from './services/transitService';
-import {
-  loadUserMeta,
-  saveUserTourMeta,
-  downloadUserMetaJson,
-  loadCustomTours
-} from './data/userMeta';
-import { SkiTour, FilterState, AvalancheRegion, OriginStation, LiveJourneyResult } from './types';
+import { loadUserMeta, saveUserTourMeta, loadCustomTours, loadDeletedTourIds, deleteTour, downloadUserMetaJson } from './data/userMeta';
+
 import { Navbar } from './components/Header/Navbar';
 import { AlpineMap } from './components/Map/AlpineMap';
 import { FilterSidebar } from './components/Filters/FilterSidebar';
 import { TourCard } from './components/Tours/TourCard';
 import { TourDetailModal } from './components/Tours/TourDetailModal';
 import { AddTourModal } from './components/Tours/AddTourModal';
-import { SlidersHorizontal, Mountain, Train } from 'lucide-react';
+import { Mountain, Loader2 } from 'lucide-react';
 
-const ORIGIN_STORAGE_KEY = 'skitour_active_origin_v1';
+const ORIGIN_STORAGE_KEY = 'skitour_active_origin_v2';
 
+/**
+ * Helper to compute next Saturday at 06:30 for early morning departures.
+ */
 function getDefaultDepartureDateTime(): string {
   const now = new Date();
-  const dayOfWeek = now.getDay();
-  let daysUntilSaturday = (6 - dayOfWeek + 7) % 7;
-  if (daysUntilSaturday === 0 && now.getHours() >= 12) {
+  const day = now.getDay(); // 0 is Sunday, 6 is Saturday
+  let daysUntilSaturday = (6 - day + 7) % 7;
+  if (daysUntilSaturday === 0 && now.getHours() >= 10) {
     daysUntilSaturday = 7;
   }
   const sat = new Date(now);
@@ -54,8 +53,8 @@ export const App: React.FC = () => {
   // Regional transit filter (D-Ticket: no ICE/IC/Flixbus)
   const [onlyRegional, setOnlyRegional] = useState<boolean>(true);
 
-  // Active Origin Station
-  const [originStation, setOriginStation] = useState<OriginStation>(() => {
+  // Active Origin Station (Default: Augsburg Haunstetter Straße)
+  const [originStation, setOriginStation] = useState<MasterStation>(() => {
     try {
       const saved = localStorage.getItem(ORIGIN_STORAGE_KEY);
       if (saved) return JSON.parse(saved);
@@ -69,6 +68,9 @@ export const App: React.FC = () => {
   // Custom user-created tours
   const [customTours, setCustomTours] = useState<SkiTour[]>(() => loadCustomTours());
 
+  // Deleted tours set
+  const [deletedTourIds, setDeletedTourIds] = useState<string[]>(() => loadDeletedTourIds());
+
   // Live journey timetables mapped by tourId
   const [liveJourneysMap, setLiveJourneysMap] = useState<Record<string, LiveJourneyResult>>({});
   const [isTimetableLoading, setIsTimetableLoading] = useState(false);
@@ -81,7 +83,7 @@ export const App: React.FC = () => {
     });
   }, []);
 
-  const handleChangeOrigin = (newOrigin: OriginStation) => {
+  const handleChangeOrigin = (newOrigin: MasterStation) => {
     setOriginStation(newOrigin);
     setIsStaleTimetable(true);
     try {
@@ -99,16 +101,15 @@ export const App: React.FC = () => {
     setIsStaleTimetable(true);
   };
 
-  // Base combined tours without live timetable override
+  // Base combined tours without deleted tours
   const baseTours = useMemo(() => {
-    const combined = [...SKI_TOURS, ...customTours];
+    const combined = [...SKI_TOURS, ...customTours].filter(t => !deletedTourIds.includes(t.id));
 
     return combined.map(tour => {
       const meta = userMetaMap[tour.id];
       const rating = meta && meta.rating !== undefined ? meta.rating : tour.rating;
       const comment = meta && meta.comment !== undefined ? meta.comment : tour.curatedComment;
-      const guruUrl = meta && meta.skitourenguruUrl ? meta.skitourenguruUrl : tour.links.skitourenguruUrl;
-      const isVerified = meta && meta.isVerifiedUrl !== undefined ? meta.isVerifiedUrl : tour.links.isVerifiedUrl;
+      const guruUrl = meta && meta.skitourenguruUrl !== undefined ? meta.skitourenguruUrl : tour.links.skitourenguruUrl;
 
       return {
         ...tour,
@@ -116,8 +117,7 @@ export const App: React.FC = () => {
         curatedComment: comment,
         links: {
           ...tour.links,
-          skitourenguruUrl: guruUrl,
-          isVerifiedUrl: isVerified
+          skitourenguruUrl: guruUrl
         },
         transit: {
           ...tour.transit,
@@ -125,9 +125,9 @@ export const App: React.FC = () => {
         }
       };
     });
-  }, [userMetaMap, customTours, originStation.name]);
+  }, [userMetaMap, customTours, deletedTourIds, originStation.name]);
 
-  // Batch fetch live timetables from Transitous (triggered explicitly by button or once on mount)
+  // Batch fetch live timetables from Transitous (triggered on mount and on explicit refresh)
   const handleFetchTimetables = useCallback(async () => {
     setIsTimetableLoading(true);
     try {
@@ -141,7 +141,7 @@ export const App: React.FC = () => {
     }
   }, [baseTours, originStation, departureDateTime, onlyRegional]);
 
-  // Initial fetch once on load
+  // Initial fetch once on application start
   useEffect(() => {
     handleFetchTimetables();
   }, []);
@@ -191,11 +191,10 @@ export const App: React.FC = () => {
         const q = filters.searchQuery.toLowerCase();
         const textMatch =
           tour.name.toLowerCase().includes(q) ||
-          tour.subheading.toLowerCase().includes(q) ||
           tour.mountainRange.toLowerCase().includes(q) ||
-          tour.valley.toLowerCase().includes(q) ||
-          tour.transit.lines.some(l => l.toLowerCase().includes(q)) ||
-          tour.transit.destinationStation.toLowerCase().includes(q);
+          (tour.valley && tour.valley.toLowerCase().includes(q)) ||
+          tour.transit.destinationStation.toLowerCase().includes(q) ||
+          tour.transit.cleanDbStationName.toLowerCase().includes(q);
         if (!textMatch) return false;
       }
 
@@ -218,13 +217,13 @@ export const App: React.FC = () => {
         return false;
       }
 
-      // Transit duration (uses live journey duration if fetched, plus walking duration)
-      const effectiveTransitDuration = tour.transit.liveJourney
-        ? tour.transit.liveJourney.durationMinutes + tour.transit.walkingDurationMinutes
-        : tour.transit.approxTotalMinutes;
-
-      if (effectiveTransitDuration > filters.maxTransitDurationMinutes) {
-        return false;
+      // Transit duration (only filter once live transit is computed so tours are not hidden on start)
+      if (tour.transit.liveJourney) {
+        const effectiveTransitDuration =
+          tour.transit.liveJourney.durationMinutes + tour.transit.walkingDurationMinutes;
+        if (effectiveTransitDuration > filters.maxTransitDurationMinutes) {
+          return false;
+        }
       }
 
       // Avalanche risk level (only filter if winter season is active)
@@ -265,19 +264,20 @@ export const App: React.FC = () => {
         case 'transitTime': {
           const durA = a.transit.liveJourney
             ? a.transit.liveJourney.durationMinutes + a.transit.walkingDurationMinutes
-            : a.transit.approxTotalMinutes;
+            : 999999;
           const durB = b.transit.liveJourney
             ? b.transit.liveJourney.durationMinutes + b.transit.walkingDurationMinutes
-            : b.transit.approxTotalMinutes;
+            : 999999;
           return durA - durB;
         }
         case 'elevationGain':
           return b.elevationGain - a.elevationGain;
         case 'rating':
           return (b.rating || 0) - (a.rating || 0);
-        case 'difficulty':
+        case 'difficulty': {
           const order = { 'L': 1, 'WS': 2, 'ZS': 3, 'S': 4 };
           return (order[a.difficultyCategory] || 0) - (order[b.difficultyCategory] || 0);
+        }
         default:
           return 0;
       }
@@ -302,15 +302,10 @@ export const App: React.FC = () => {
     comment: string,
     skitourenguruUrl?: string
   ) => {
-    const isVerified = skitourenguruUrl
-      ? skitourenguruUrl.includes('?id=') || skitourenguruUrl.includes('/routes/')
-      : undefined;
-
     const updated = saveUserTourMeta(tourId, {
       rating,
       comment,
-      skitourenguruUrl,
-      isVerifiedUrl: isVerified
+      skitourenguruUrl
     });
     setUserMetaMap(updated);
   };
@@ -320,6 +315,14 @@ export const App: React.FC = () => {
     setSelectedTour(newTour);
   };
 
+  const handleDeleteTour = (tourId: string) => {
+    deleteTour(tourId);
+    setDeletedTourIds(prev => [...prev, tourId]);
+    if (selectedTour?.id === tourId) {
+      setSelectedTour(null);
+    }
+  };
+
   return (
     <div className="flex flex-col h-screen w-screen overflow-hidden bg-slate-100 font-sans antialiased text-slate-800">
       {/* Top Navigation */}
@@ -327,110 +330,123 @@ export const App: React.FC = () => {
         toursCount={filteredTours.length}
         mobileView={mobileView}
         setMobileView={setMobileView}
-        toggleFilterDrawer={() => setIsFilterDrawerOpen(!isFilterDrawerOpen)}
         isFilterDrawerOpen={isFilterDrawerOpen}
+        toggleFilterDrawer={() => setIsFilterDrawerOpen(!isFilterDrawerOpen)}
+        onOpenAddTour={() => setIsAddTourModalOpen(true)}
         originStation={originStation}
         onChangeOrigin={handleChangeOrigin}
         departureDateTime={departureDateTime}
         onChangeDepartureDateTime={handleChangeDepartureDateTime}
-        onlyRegional={onlyRegional}
-        onChangeOnlyRegional={handleChangeOnlyRegional}
         onRefreshTimetables={handleFetchTimetables}
         isTimetableLoading={isTimetableLoading}
+        onlyRegional={onlyRegional}
+        onChangeOnlyRegional={handleChangeOnlyRegional}
         isStaleTimetable={isStaleTimetable}
-        onOpenAddTour={() => setIsAddTourModalOpen(true)}
         onExportJson={downloadUserMetaJson}
       />
 
-      {/* Main Content Area */}
+      {/* Main Container: Sidebar Filters + Tour List + Map */}
       <div className="flex-1 flex overflow-hidden relative">
-        {/* Left Column: Tour List & Filters Panel */}
-        <div
-          className={`w-full md:w-[420px] lg:w-[460px] flex flex-col bg-white border-r border-slate-200 z-20 shrink-0 transition-transform md:translate-x-0 ${
-            mobileView === 'list' ? 'block' : 'hidden md:flex'
-          }`}
-        >
-          {/* Filter Header Banner */}
-          <div className="p-3 bg-slate-900 text-white flex items-center justify-between text-xs border-b border-slate-800">
-            <div className="flex items-center space-x-2 truncate">
-              <Train className="w-4 h-4 text-alpine-400 shrink-0" />
-              <span className="font-bold truncate">Öffi-Touren ab {originStation.name}</span>
-            </div>
-            <button
-              onClick={() => setIsFilterDrawerOpen(!isFilterDrawerOpen)}
-              className="text-[11px] font-bold text-alpine-300 hover:text-white flex items-center space-x-1 shrink-0 ml-2"
-            >
-              <SlidersHorizontal className="w-3.5 h-3.5" />
-              <span>{isFilterDrawerOpen ? 'Liste anzeigen' : 'Filter'}</span>
-            </button>
-          </div>
+        {/* Filter Sidebar (Desktop) */}
+        <div className="hidden lg:block w-72 h-full shrink-0 border-r border-slate-200/80 bg-white z-20">
+          <FilterSidebar
+            filters={filters}
+            onFilterChange={setFilters}
+            availableRanges={availableRanges}
+            totalToursCount={allTours.length}
+            filteredToursCount={filteredTours.length}
+            originStation={originStation}
+          />
+        </div>
 
-          {/* Conditional View: Filter Sidebar or Tour List */}
-          {isFilterDrawerOpen ? (
-            <div className="flex-1 overflow-hidden">
+        {/* Filter Drawer (Mobile & Tablet) */}
+        {isFilterDrawerOpen && (
+          <div className="lg:hidden fixed inset-0 z-40 flex">
+            <div
+              className="fixed inset-0 bg-slate-900/40 backdrop-blur-xs"
+              onClick={() => setIsFilterDrawerOpen(false)}
+            />
+            <div className="relative w-80 max-w-full h-full bg-white shadow-2xl z-50 flex flex-col">
               <FilterSidebar
                 filters={filters}
                 onFilterChange={setFilters}
+                availableRanges={availableRanges}
                 totalToursCount={allTours.length}
                 filteredToursCount={filteredTours.length}
-                availableRanges={availableRanges}
                 originStation={originStation}
+                onCloseMobile={() => setIsFilterDrawerOpen(false)}
               />
             </div>
-          ) : (
-            <div className="flex-1 overflow-y-auto p-3 space-y-3 bg-slate-50/50">
-              {/* Tour List Header */}
-              <div className="flex items-center justify-between px-1 text-xs text-slate-500 font-semibold">
-                <span>{filteredTours.length} Touren gefunden</span>
-                <span className="text-[11px] text-slate-400">
-                  {filters.ratingFilter === 'unrated' ? 'Nur unbewertete' : ''}
-                </span>
-              </div>
+          </div>
+        )}
 
-              {/* Tour Cards */}
-              {filteredTours.length === 0 ? (
-                <div className="text-center py-12 px-4 space-y-3">
-                  <div className="w-12 h-12 rounded-full bg-slate-200 text-slate-500 flex items-center justify-center mx-auto">
-                    <Mountain className="w-6 h-6" />
-                  </div>
-                  <h4 className="font-bold text-slate-800 text-sm">Keine passenden Touren gefunden</h4>
-                  <p className="text-xs text-slate-500 max-w-xs mx-auto">
-                    Passe deine Filterkriterien an oder importiere eine neue Tour über den Button oben!
-                  </p>
-                  <button
-                    onClick={() => setFilters({
-                      searchQuery: '',
-                      onlyDTicket: false,
-                      onlyPiste: false,
-                      maxTransitDurationMinutes: 240,
-                      maxAvalancheLevel: 4,
-                      minElevationGain: 0,
-                      maxElevationGain: 2000,
-                      selectedDifficulties: [],
-                      selectedRanges: [],
-                      tourType: 'all',
-                      ratingFilter: 'all',
-                      sortBy: 'transitTime'
-                    })}
-                    className="px-4 py-2 bg-alpine-600 text-white rounded-xl text-xs font-bold shadow-xs hover:bg-alpine-700 transition-colors"
-                  >
-                    Filter zurücksetzen
-                  </button>
-                </div>
-              ) : (
-                filteredTours.map(tour => (
-                  <TourCard
-                    key={tour.id}
-                    tour={tour}
-                    isSelected={selectedTour?.id === tour.id}
-                    onSelect={handleSelectTour}
-                    avalancheRegions={avalancheRegions}
-                    onRatingChange={handleRatingChange}
-                  />
-                ))
-              )}
+        {/* Left Area: Tour Cards List */}
+        <div
+          className={`w-full md:w-96 lg:w-[410px] h-full shrink-0 flex flex-col bg-white border-r border-slate-200/80 z-10 ${
+            mobileView === 'list' ? 'block' : 'hidden md:flex'
+          }`}
+        >
+          {isTimetableLoading && (
+            <div className="bg-sky-50 border-b border-sky-100 px-3 py-1.5 flex items-center justify-between text-xs text-sky-800">
+              <span className="flex items-center space-x-1.5 font-medium">
+                <Loader2 className="w-3.5 h-3.5 animate-spin text-sky-600" />
+                <span>Echtzeit-Fahrpläne werden geladen...</span>
+              </span>
             </div>
           )}
+
+          <div className="flex-1 overflow-y-auto p-3 space-y-3 bg-slate-50/50">
+            {/* Tour List Header */}
+            <div className="flex items-center justify-between px-1 text-xs text-slate-500 font-semibold">
+              <span>{filteredTours.length} Touren gefunden</span>
+              <span className="text-[11px] text-slate-400">
+                {filters.ratingFilter === 'unrated' ? 'Nur unbewertete' : ''}
+              </span>
+            </div>
+
+            {/* Tour Cards */}
+            {filteredTours.length === 0 ? (
+              <div className="text-center py-12 px-4 space-y-3">
+                <div className="w-12 h-12 rounded-full bg-slate-200 text-slate-500 flex items-center justify-center mx-auto">
+                  <Mountain className="w-6 h-6" />
+                </div>
+                <h4 className="font-bold text-slate-800 text-sm">Keine passenden Touren gefunden</h4>
+                <p className="text-xs text-slate-500 max-w-xs mx-auto">
+                  Passe deine Filterkriterien an oder importiere eine neue Tour über den Button oben!
+                </p>
+                <button
+                  onClick={() => setFilters({
+                    searchQuery: '',
+                    onlyDTicket: false,
+                    onlyPiste: false,
+                    maxTransitDurationMinutes: 300,
+                    maxAvalancheLevel: 4,
+                    minElevationGain: 0,
+                    maxElevationGain: 2000,
+                    selectedDifficulties: [],
+                    selectedRanges: [],
+                    tourType: 'all',
+                    ratingFilter: 'all',
+                    sortBy: 'transitTime'
+                  })}
+                  className="px-4 py-2 bg-alpine-600 text-white rounded-xl text-xs font-bold shadow-xs hover:bg-alpine-700 transition-colors"
+                >
+                  Filter zurücksetzen
+                </button>
+              </div>
+            ) : (
+              filteredTours.map(tour => (
+                <TourCard
+                  key={tour.id}
+                  tour={tour}
+                  isSelected={selectedTour?.id === tour.id}
+                  onSelect={handleSelectTour}
+                  avalancheRegions={avalancheRegions}
+                  onRatingChange={handleRatingChange}
+                />
+              ))
+            )}
+          </div>
         </div>
 
         {/* Right Area: Interactive MapLibre GL Alpine Map (2D) */}
@@ -458,6 +474,7 @@ export const App: React.FC = () => {
             departureDateTime={departureDateTime}
             onlyRegional={onlyRegional}
             onUpdateTourMeta={handleUpdateTourMeta}
+            onDeleteTour={handleDeleteTour}
           />
         )}
 

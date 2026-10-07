@@ -1,40 +1,27 @@
-import { OriginStation } from '../types';
+import { MasterStation } from '../types';
 
-export interface TrainStation {
-  id: string;
-  name: string;
-  coordinates: [number, number]; // [lng, lat]
-  ibnr?: string;
-  eva?: string;
-  cleanDbName?: string;
-  isOrigin?: boolean;
-  isKeyHub?: boolean;
-  dTicketNotice?: string;
-}
+export type { MasterStation };
+export type TrainStation = MasterStation;
 
-export interface TransitLine {
-  id: string;
-  name: string;
-  color: string;
-  textColor: string;
-  category: 'rail' | 'bus';
-  dTicketStatus: '100% gültig' | 'Zusatzkosten nötig';
-  coordinates: [number, number][]; // LineString points [lng, lat]
-  description: string;
-}
-
-export const DEFAULT_ORIGIN_STATION: OriginStation = {
+export const DEFAULT_ORIGIN_STATION: MasterStation = {
   id: 'augsburg-haunstetter-str',
   name: 'Augsburg Haunstetter Straße',
   ibnr: '8000713',
   eva: '780251',
   cleanDbName: 'Haunstetter Straße Bahnhof, Augsburg (Bayern)',
   coordinates: [10.9023, 48.3512],
+  type: 'rail',
+  dTicketNotice: 'Startbahnhof direkt vor der Haustür',
   note: 'Heimat-Bahnhof direkt vor der Haustür. Startpunkt aller Touren!'
 };
 
-export const POPULAR_ORIGIN_STATIONS: OriginStation[] = [
+/**
+ * Master catalog of railway stations & key ski bus terminals in Bavaria and Tyrol.
+ * Shared seamlessly across both Origin and Tour Destination pickers.
+ */
+export const UNIFIED_STATION_CATALOG: MasterStation[] = [
   DEFAULT_ORIGIN_STATION,
+  // Bavarian Origin & Junction Hubs
   {
     id: 'augsburg-hbf',
     name: 'Augsburg Hbf',
@@ -42,7 +29,8 @@ export const POPULAR_ORIGIN_STATIONS: OriginStation[] = [
     eva: '8000013',
     cleanDbName: 'Augsburg Hbf',
     coordinates: [10.8856, 48.3654],
-    note: 'Hauptbahnhof Augsburg'
+    type: 'rail',
+    dTicketNotice: 'Hauptbahnhof'
   },
   {
     id: 'muenchen-hbf',
@@ -51,7 +39,8 @@ export const POPULAR_ORIGIN_STATIONS: OriginStation[] = [
     eva: '8000261',
     cleanDbName: 'München Hbf',
     coordinates: [11.5583, 48.1402],
-    note: 'München Hauptbahnhof'
+    type: 'rail',
+    dTicketNotice: 'Hauptbahnhof'
   },
   {
     id: 'muenchen-pasing',
@@ -60,7 +49,8 @@ export const POPULAR_ORIGIN_STATIONS: OriginStation[] = [
     eva: '8004158',
     cleanDbName: 'München-Pasing',
     coordinates: [11.4619, 48.1500],
-    note: 'Direktknoten Richtung Werdenfels & Allgäu'
+    type: 'rail',
+    dTicketNotice: 'Knoten Werdenfels & Allgäu'
   },
   {
     id: 'buchloe',
@@ -69,25 +59,8 @@ export const POPULAR_ORIGIN_STATIONS: OriginStation[] = [
     eva: '8000057',
     cleanDbName: 'Buchloe',
     coordinates: [10.7250, 48.0381],
-    note: 'Umsteigeknoten Allgäu & Außerfern'
-  },
-  {
-    id: 'kempten',
-    name: 'Kempten (Allgäu) Hbf',
-    ibnr: '8000199',
-    eva: '8000199',
-    cleanDbName: 'Kempten(Allgäu)Hbf',
-    coordinates: [10.3167, 47.7200],
-    note: 'Drehscheibe Oberallgäu'
-  },
-  {
-    id: 'weilheim',
-    name: 'Weilheim (Oberbay)',
-    ibnr: '8006306',
-    eva: '8006306',
-    cleanDbName: 'Weilheim(Oberbay)',
-    coordinates: [11.1400, 47.8400],
-    note: 'Knoten Werdenfelsbahn'
+    type: 'rail',
+    dTicketNotice: 'Umsteigeknoten Allgäu & Außerfern'
   },
   {
     id: 'kaufering',
@@ -96,187 +69,410 @@ export const POPULAR_ORIGIN_STATIONS: OriginStation[] = [
     eva: '8003222',
     cleanDbName: 'Kaufering',
     coordinates: [10.8653, 48.0872],
-    note: 'Knotenpunkt Lechfeld'
+    type: 'rail',
+    dTicketNotice: 'Lechfeld'
   },
   {
-    id: 'landsberg',
-    name: 'Landsberg (Lech)',
-    ibnr: '8003534',
-    eva: '8003534',
-    cleanDbName: 'Landsberg(Lech)',
-    coordinates: [10.8711, 48.0531],
-    note: 'Lechfeld'
+    id: 'kempten',
+    name: 'Kempten (Allgäu) Hbf',
+    ibnr: '8000199',
+    eva: '8000199',
+    cleanDbName: 'Kempten(Allgäu)Hbf',
+    coordinates: [10.3167, 47.7200],
+    type: 'rail',
+    dTicketNotice: 'Drehscheibe Allgäu'
   },
   {
-    id: 'donauwoerth',
-    name: 'Donauwörth',
-    ibnr: '8000080',
-    eva: '8000080',
-    cleanDbName: 'Donauwörth',
-    coordinates: [10.7725, 48.7153],
-    note: 'Nordschwaben'
+    id: 'immenstadt',
+    name: 'Immenstadt',
+    ibnr: '8000185',
+    eva: '8000185',
+    cleanDbName: 'Immenstadt',
+    coordinates: [10.2200, 47.5600],
+    type: 'rail',
+    dTicketNotice: 'Oberallgäu'
   },
   {
-    id: 'ulm-hbf',
-    name: 'Ulm Hbf',
-    ibnr: '8000170',
-    eva: '8000170',
-    cleanDbName: 'Ulm Hbf',
-    coordinates: [9.9825, 48.3994],
-    note: 'Ulm Hauptbahnhof'
+    id: 'weilheim',
+    name: 'Weilheim (Oberbay)',
+    ibnr: '8006306',
+    eva: '8006306',
+    cleanDbName: 'Weilheim(Oberbay)',
+    coordinates: [11.1400, 47.8400],
+    type: 'rail',
+    dTicketNotice: 'Werdenfelsbahn'
+  },
+  {
+    id: 'tutzing',
+    name: 'Tutzing',
+    ibnr: '8005929',
+    eva: '8005929',
+    cleanDbName: 'Tutzing',
+    coordinates: [11.2750, 47.9080],
+    type: 'rail',
+    dTicketNotice: 'Starnberger See'
+  },
+  {
+    id: 'murnau',
+    name: 'Murnau',
+    ibnr: '8004183',
+    eva: '8004183',
+    cleanDbName: 'Murnau',
+    coordinates: [11.2000, 47.6800],
+    type: 'rail',
+    dTicketNotice: 'Werdenfels'
+  },
+
+  // Alpine Rail Hubs
+  {
+    id: 'oberstdorf',
+    name: 'Oberstdorf Bhf',
+    ibnr: '8004593',
+    eva: '8004593',
+    cleanDbName: 'Oberstdorf',
+    coordinates: [10.2847, 47.4083],
+    type: 'rail',
+    dTicketNotice: '100% D-Ticket'
+  },
+  {
+    id: 'pfronten-steinach',
+    name: 'Pfronten-Steinach',
+    ibnr: '8004812',
+    eva: '8004812',
+    cleanDbName: 'Pfronten-Steinach',
+    coordinates: [10.5601, 47.5147],
+    type: 'rail',
+    dTicketNotice: '100% D-Ticket'
+  },
+  {
+    id: 'fuessen',
+    name: 'Füssen Bhf',
+    ibnr: '8000111',
+    eva: '8000111',
+    cleanDbName: 'Füssen',
+    coordinates: [10.7000, 47.5700],
+    type: 'rail',
+    dTicketNotice: 'Direktzug RB 77 ab Haunstetter Str.'
+  },
+  {
+    id: 'reutte',
+    name: 'Reutte in Tirol',
+    ibnr: '8100155',
+    eva: '8100155',
+    cleanDbName: 'Reutte in Tirol',
+    coordinates: [10.7180, 47.4890],
+    type: 'rail',
+    dTicketNotice: '100% D-Ticket (Außerfernbahn)'
+  },
+  {
+    id: 'heiterwang',
+    name: 'Heiterwang-Plansee',
+    ibnr: '8100150',
+    eva: '8100150',
+    cleanDbName: 'Heiterwang-Plansee',
+    coordinates: [10.7483, 47.4528],
+    type: 'rail',
+    dTicketNotice: '100% D-Ticket (Außerfern)'
+  },
+  {
+    id: 'bichlbach',
+    name: 'Bichlbach-Berwang',
+    ibnr: '8100146',
+    eva: '8100146',
+    cleanDbName: 'Bichlbach-Berwang',
+    coordinates: [10.7890, 47.4200],
+    type: 'rail',
+    dTicketNotice: '100% D-Ticket'
+  },
+  {
+    id: 'laehn',
+    name: 'Bahnhof Lähn',
+    ibnr: '8100108',
+    eva: '8100108',
+    cleanDbName: 'Lähn',
+    coordinates: [10.8169, 47.4144],
+    type: 'rail',
+    dTicketNotice: '100% D-Ticket'
+  },
+  {
+    id: 'lermoos',
+    name: 'Bahnhof Lermoos',
+    ibnr: '8100085',
+    eva: '8100085',
+    cleanDbName: 'Lermoos',
+    coordinates: [10.8872, 47.4019],
+    type: 'rail',
+    dTicketNotice: '100% D-Ticket'
+  },
+  {
+    id: 'ehrwald',
+    name: 'Ehrwald Zugspitzbahn',
+    ibnr: '8100148',
+    eva: '8100148',
+    cleanDbName: 'Ehrwald Zugspitzbahn',
+    coordinates: [10.9150, 47.4000],
+    type: 'rail',
+    dTicketNotice: '100% D-Ticket'
+  },
+  {
+    id: 'garmisch',
+    name: 'Garmisch-Partenkirchen',
+    ibnr: '8002220',
+    eva: '8002220',
+    cleanDbName: 'Garmisch-Partenkirchen',
+    coordinates: [11.0967, 47.4920],
+    type: 'rail',
+    dTicketNotice: '100% D-Ticket'
+  },
+  {
+    id: 'klais',
+    name: 'Klais',
+    ibnr: '8003306',
+    eva: '8003306',
+    cleanDbName: 'Klais',
+    coordinates: [11.2333, 47.4833],
+    type: 'rail',
+    dTicketNotice: '100% D-Ticket'
+  },
+  {
+    id: 'mittenwald',
+    name: 'Mittenwald Bhf',
+    ibnr: '8000257',
+    eva: '8000257',
+    cleanDbName: 'Mittenwald',
+    coordinates: [11.2650, 47.4419],
+    type: 'rail',
+    dTicketNotice: '100% D-Ticket'
+  },
+  {
+    id: 'scharnitz',
+    name: 'Bahnhof Scharnitz',
+    ibnr: '8100088',
+    eva: '8100088',
+    cleanDbName: 'Scharnitz',
+    coordinates: [11.2642, 47.3889],
+    type: 'rail',
+    dTicketNotice: '100% D-Ticket (Grenzbahnhof inkludiert)'
+  },
+  {
+    id: 'seefeld',
+    name: 'Bahnhof Seefeld in Tirol',
+    ibnr: '8100062',
+    eva: '8100062',
+    cleanDbName: 'Seefeld in Tirol',
+    coordinates: [11.1969, 47.3325],
+    type: 'rail',
+    dTicketNotice: 'ÖBB-Aufpreis ab Scharnitz (~3,80 €)'
+  },
+  {
+    id: 'lenggries',
+    name: 'Lenggries',
+    ibnr: '8003666',
+    eva: '8003666',
+    cleanDbName: 'Lenggries',
+    coordinates: [11.5731, 47.6811],
+    type: 'rail',
+    dTicketNotice: '100% D-Ticket (Brauneck)'
+  },
+  {
+    id: 'tegernsee',
+    name: 'Tegernsee',
+    ibnr: '8005834',
+    eva: '8005834',
+    cleanDbName: 'Tegernsee',
+    coordinates: [11.7583, 47.7125],
+    type: 'rail',
+    dTicketNotice: '100% D-Ticket'
+  },
+  {
+    id: 'fischhausen',
+    name: 'Fischhausen-Neuhaus',
+    ibnr: '8002013',
+    eva: '8002013',
+    cleanDbName: 'Fischhausen-Neuhaus',
+    coordinates: [11.8744, 47.7011],
+    type: 'rail',
+    dTicketNotice: '100% D-Ticket (Spitzingsee Bus)'
+  },
+  {
+    id: 'bayrischzell',
+    name: 'Bayrischzell',
+    ibnr: '8000845',
+    eva: '8000845',
+    cleanDbName: 'Bayrischzell',
+    coordinates: [12.0125, 47.6742],
+    type: 'rail',
+    dTicketNotice: '100% D-Ticket (Sudelfeld)'
+  },
+
+  // Alpine Bus Hubs & Key Trailhead Stops
+  {
+    id: 'riezlern-kanzelwand',
+    name: 'Riezlern Kanzelwandbahn',
+    ibnr: '8100654',
+    eva: '8100654',
+    cleanDbName: 'Riezlern Kanzelwandbahn',
+    coordinates: [10.1855, 47.3562],
+    type: 'bus',
+    dTicketNotice: '100% D-Ticket (Walserbus 1 ab Oberstdorf)'
+  },
+  {
+    id: 'mittelberg-boedmen',
+    name: 'Mittelberg Bödmen',
+    ibnr: '8100652',
+    eva: '8100652',
+    cleanDbName: 'Mittelberg Bödmen',
+    coordinates: [10.1620, 47.3180],
+    type: 'bus',
+    dTicketNotice: '100% D-Ticket (Walserbus 1 ab Oberstdorf)'
+  },
+  {
+    id: 'baad',
+    name: 'Baad (Kleinwalsertal)',
+    ibnr: '8100650',
+    eva: '8100650',
+    cleanDbName: 'Baad',
+    coordinates: [10.1189, 47.3094],
+    type: 'bus',
+    dTicketNotice: '100% D-Ticket (Walserbus 1 Talschluss)'
+  },
+  {
+    id: 'tannheim-kreisverkehr',
+    name: 'Tannheim Kreisverkehr',
+    ibnr: '8101452',
+    eva: '8101452',
+    cleanDbName: 'Tannheim Kreisverkehr',
+    coordinates: [10.5170, 47.4988],
+    type: 'bus',
+    dTicketNotice: 'VVT Bus 120 ab Pfronten / Sonthofen'
+  },
+  {
+    id: 'nesselwaengle',
+    name: 'Nesselwängle Abzw Krinnenalpe',
+    ibnr: '8101458',
+    eva: '8101458',
+    cleanDbName: 'Nesselwängle',
+    coordinates: [10.6180, 47.4820],
+    type: 'bus',
+    dTicketNotice: 'VVT Bus 120'
+  },
+  {
+    id: 'oberjoch',
+    name: 'Oberjoch Moorhütte',
+    ibnr: '8071060',
+    eva: '8071060',
+    cleanDbName: 'Oberjoch',
+    coordinates: [10.4100, 47.5140],
+    type: 'bus',
+    dTicketNotice: '100% D-Ticket (Bus ab Sonthofen)'
+  },
+  {
+    id: 'spitzingsee-kirche',
+    name: 'Spitzingsee Kirche',
+    ibnr: '8072040',
+    eva: '8072040',
+    cleanDbName: 'Spitzingsee',
+    coordinates: [11.8880, 47.6620],
+    type: 'bus',
+    dTicketNotice: 'RVO Bus 9562 ab Fischhausen-Neuhaus'
   }
 ];
 
-export const KEY_STATIONS: TrainStation[] = [
-  {
-    id: DEFAULT_ORIGIN_STATION.id,
-    name: DEFAULT_ORIGIN_STATION.name,
-    coordinates: DEFAULT_ORIGIN_STATION.coordinates,
-    ibnr: DEFAULT_ORIGIN_STATION.ibnr,
-    eva: DEFAULT_ORIGIN_STATION.eva,
-    cleanDbName: DEFAULT_ORIGIN_STATION.cleanDbName,
-    isOrigin: true,
-    dTicketNotice: 'Startbahnhof'
-  },
-  { id: 'buchloe', name: 'Buchloe', coordinates: [10.7250, 48.0381], isKeyHub: true, ibnr: '8000057', eva: '8000057', cleanDbName: 'Buchloe', dTicketNotice: 'Umsteigeknoten ins Allgäu & Außerfern' },
-  { id: 'kempten', name: 'Kempten (Allgäu) Hbf', coordinates: [10.3167, 47.7200], isKeyHub: true, ibnr: '8000199', eva: '8000199', cleanDbName: 'Kempten(Allgäu)Hbf' },
-  { id: 'oberstdorf', name: 'Oberstdorf Bhf', coordinates: [10.2847, 47.4083], ibnr: '8004593', eva: '8004593', cleanDbName: 'Oberstdorf', isKeyHub: true, dTicketNotice: '100% D-Ticket' },
-  { id: 'pfronten-steinach', name: 'Pfronten-Steinach', coordinates: [10.5601, 47.5147], ibnr: '8004812', eva: '8004812', cleanDbName: 'Pfronten-Steinach', isKeyHub: true, dTicketNotice: '100% D-Ticket' },
-  { id: 'fuessen', name: 'Füssen Bhf', coordinates: [10.7000, 47.5700], ibnr: '8000111', eva: '8000111', cleanDbName: 'Füssen', isKeyHub: true, dTicketNotice: 'Direktzug RB 77 ab Haunstetter Str.' },
-  { id: 'reutte', name: 'Reutte in Tirol', coordinates: [10.7180, 47.4890], isKeyHub: true, ibnr: '8100155', eva: '8100155', cleanDbName: 'Reutte in Tirol', dTicketNotice: '100% D-Ticket (Außerfernbahn)' },
-  { id: 'laehn', name: 'Bahnhof Lähn', coordinates: [10.8169, 47.4144], ibnr: '8100108', eva: '8100108', cleanDbName: 'Lähn', isKeyHub: true, dTicketNotice: '100% D-Ticket' },
-  { id: 'lermoos', name: 'Bahnhof Lermoos', coordinates: [10.8872, 47.4019], ibnr: '8100085', eva: '8100085', cleanDbName: 'Lermoos', isKeyHub: true, dTicketNotice: '100% D-Ticket' },
-  { id: 'ehrwald', name: 'Ehrwald Zugspitzbahn', coordinates: [10.9150, 47.4000], ibnr: '8100148', eva: '8100148', cleanDbName: 'Ehrwald Zugspitzbahn', isKeyHub: true, dTicketNotice: '100% D-Ticket' },
-  { id: 'bichlbach', name: 'Bichlbach-Berwang', coordinates: [10.7890, 47.4200], ibnr: '8100146', eva: '8100146', cleanDbName: 'Bichlbach-Berwang', isKeyHub: true, dTicketNotice: '100% D-Ticket' },
-  { id: 'garmisch', name: 'Garmisch-Partenkirchen', coordinates: [11.0967, 47.4920], ibnr: '8002220', eva: '8002220', cleanDbName: 'Garmisch-Partenkirchen', isKeyHub: true, dTicketNotice: '100% D-Ticket' },
-  { id: 'mittenwald', name: 'Mittenwald Bhf', coordinates: [11.2650, 47.4419], ibnr: '8000257', eva: '8000257', cleanDbName: 'Mittenwald', isKeyHub: true, dTicketNotice: '100% D-Ticket' },
-  { id: 'scharnitz', name: 'Bahnhof Scharnitz', coordinates: [11.2642, 47.3889], ibnr: '8100088', eva: '8100088', cleanDbName: 'Scharnitz', isKeyHub: true, dTicketNotice: '100% D-Ticket (Grenzbahnhof nach Anlage 2 inkludiert!)' },
-  { id: 'seefeld', name: 'Bahnhof Seefeld in Tirol', coordinates: [11.1969, 47.3325], ibnr: '8100062', eva: '8100062', cleanDbName: 'Seefeld in Tirol', isKeyHub: true, dTicketNotice: 'Kleiner ÖBB-Aufpreis ab Scharnitz (~3,80 €)' },
-  { id: 'fischhausen', name: 'Fischhausen-Neuhaus', coordinates: [11.8744, 47.7011], ibnr: '8002013', eva: '8002013', cleanDbName: 'Fischhausen-Neuhaus', isKeyHub: true, dTicketNotice: '100% D-Ticket (Spitzingsee Bus)' },
-  { id: 'lenggries', name: 'Lenggries', coordinates: [11.5731, 47.6811], ibnr: '8003666', eva: '8003666', cleanDbName: 'Lenggries', isKeyHub: true, dTicketNotice: '100% D-Ticket (Brauneck)' },
-  { id: 'tegernsee', name: 'Tegernsee', coordinates: [11.7583, 47.7125], ibnr: '8005834', eva: '8005834', cleanDbName: 'Tegernsee', isKeyHub: true, dTicketNotice: '100% D-Ticket' },
-  { id: 'bayrischzell', name: 'Bayrischzell', coordinates: [12.0125, 47.6742], ibnr: '8000845', eva: '8000845', cleanDbName: 'Bayrischzell', isKeyHub: true, dTicketNotice: '100% D-Ticket (Sudelfeld)' }
-];
+const CUSTOM_STATIONS_STORAGE_KEY = 'skitour_custom_stations';
 
-export const TRANSIT_LINES: TransitLine[] = [
-  {
-    id: 'allgaeu-re17',
-    name: 'RE 17 / RB 69 Allgäu-Express',
-    color: '#0284c7',
-    textColor: '#ffffff',
-    category: 'rail',
-    dTicketStatus: '100% gültig',
-    description: 'Augsburg Haunstetter Str. → Buchloe → Kaufbeuren → Kempten → Immenstadt → Oberstdorf',
-    coordinates: [
-      [10.9023, 48.3512],
-      [10.8400, 48.2700],
-      [10.7250, 48.0381],
-      [10.6300, 47.8830],
-      [10.3167, 47.7200],
-      [10.2200, 47.5600],
-      [10.2800, 47.5100],
-      [10.2847, 47.4083]
-    ]
-  },
-  {
-    id: 'ausserfernbahn-rb60',
-    name: 'RB 60 Außerfernbahn',
-    color: '#16a34a',
-    textColor: '#ffffff',
-    category: 'rail',
-    dTicketStatus: '100% gültig',
-    description: 'Kempten → Pfronten-Steinach → Reutte i.T. → Lähn → Lermoos → Ehrwald → Garmisch (100% im D-Ticket!)',
-    coordinates: [
-      [10.3167, 47.7200],
-      [10.5601, 47.5147],
-      [10.6300, 47.5450],
-      [10.7180, 47.4890],
-      [10.7890, 47.4200],
-      [10.8169, 47.4144],
-      [10.8872, 47.4019],
-      [10.9150, 47.4000],
-      [11.0967, 47.4920]
-    ]
-  },
-  {
-    id: 'werdenfelsbahn-rb6',
-    name: 'RB 6 / S6 Werdenfelsbahn',
-    color: '#8b5cf6',
-    textColor: '#ffffff',
-    category: 'rail',
-    dTicketStatus: '100% gültig',
-    description: 'Augsburg → München-Pasing → Tutzing → Murnau → Garmisch → Mittenwald → Scharnitz → Seefeld',
-    coordinates: [
-      [10.9023, 48.3512],
-      [11.4619, 48.1500],
-      [11.2750, 47.9080],
-      [11.1400, 47.8400],
-      [11.2000, 47.6800],
-      [11.0967, 47.4920],
-      [11.2333, 47.4833],
-      [11.2650, 47.4419],
-      [11.2642, 47.3889],
-      [11.1969, 47.3325]
-    ]
-  },
-  {
-    id: 'fuessen-rb77',
-    name: 'BRB RB 77 Direkt nach Füssen',
-    color: '#f59e0b',
-    textColor: '#ffffff',
-    category: 'rail',
-    dTicketStatus: '100% gültig',
-    description: 'Direktzug ab Haunstetter Str. über Buchloe & Marktoberdorf nach Füssen (Tegelberg)',
-    coordinates: [
-      [10.9023, 48.3512],
-      [10.7250, 48.0381],
-      [10.6100, 47.7800],
-      [10.7000, 47.5700]
-    ]
-  },
-  {
-    id: 'walserbus-1',
-    name: 'Walserbus Linie 1',
-    color: '#06b6d4',
-    textColor: '#ffffff',
-    category: 'bus',
-    dTicketStatus: '100% gültig',
-    description: 'Oberstdorf Bhf → Riezlern → Hirschegg → Mittelberg Bödmen → Baad (100% D-Ticket gültig!)',
-    coordinates: [
-      [10.2847, 47.4083],
-      [10.1855, 47.3562],
-      [10.1680, 47.3450],
-      [10.1620, 47.3180],
-      [10.1189, 47.3094]
-    ]
-  },
-  {
-    id: 'tannheimer-bus-120',
-    name: 'VVT Bus 120 Tannheimer Tal',
-    color: '#ec4899',
-    textColor: '#ffffff',
-    category: 'bus',
-    dTicketStatus: 'Zusatzkosten nötig',
-    description: 'Pfronten-Steinach / Oberjoch → Schattwald → Zöblen → Tannheim → Nesselwängle (VVT Ticket ca. 4 €)',
-    coordinates: [
-      [10.5601, 47.5147],
-      [10.4533, 47.5140],
-      [10.5170, 47.4988],
-      [10.5700, 47.4880],
-      [10.6700, 47.4600]
-    ]
+export function loadCustomStations(): MasterStation[] {
+  try {
+    const raw = localStorage.getItem(CUSTOM_STATIONS_STORAGE_KEY);
+    return raw ? JSON.parse(raw) : [];
+  } catch {
+    return [];
   }
-];
+}
 
-export const ALL_PRESET_ORIGIN_STATIONS: OriginStation[] = [
-  ...POPULAR_ORIGIN_STATIONS,
-  ...KEY_STATIONS.filter(k => !POPULAR_ORIGIN_STATIONS.some(p => p.id === k.id)).map(k => ({
-    id: k.id,
-    name: k.name,
-    ibnr: k.ibnr || '8000000',
-    eva: k.eva || k.ibnr || '8000000',
-    cleanDbName: k.cleanDbName || k.name,
-    coordinates: k.coordinates,
-    note: k.dTicketNotice
-  }))
-];
+export function saveCustomStation(station: MasterStation): void {
+  try {
+    const list = loadCustomStations().filter(s => s.id !== station.id);
+    list.push({ ...station, isCustom: true });
+    localStorage.setItem(CUSTOM_STATIONS_STORAGE_KEY, JSON.stringify(list));
+  } catch {}
+}
+
+export function getAllMasterStations(): MasterStation[] {
+  const custom = loadCustomStations();
+  const map = new Map<string, MasterStation>();
+  for (const st of UNIFIED_STATION_CATALOG) {
+    map.set(st.id, st);
+  }
+  for (const st of custom) {
+    map.set(st.id, st);
+  }
+  return Array.from(map.values());
+}
+
+/**
+ * Searches for public transit stops (bus or train) across Germany and Austria using
+ * OpenStreetMap Nominatim / Transitous location resolution.
+ */
+export async function searchPublicTransitStops(query: string): Promise<MasterStation[]> {
+  const trimmed = query.trim();
+  if (!trimmed || trimmed.length < 2) return [];
+
+  // First search local master catalog
+  const allLocal = getAllMasterStations();
+  const qLower = trimmed.toLowerCase();
+  const localMatches = allLocal.filter(s =>
+    s.name.toLowerCase().includes(qLower) ||
+    (s.cleanDbName && s.cleanDbName.toLowerCase().includes(qLower))
+  );
+
+  // If sufficient local matches found, return them directly
+  if (localMatches.length >= 5) {
+    return localMatches;
+  }
+
+  // Geocode online via Nominatim (restricted to DE & AT transit stops)
+  try {
+    const url = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(trimmed + ' Bahnhof Haltestelle')}&countrycodes=de,at&limit=6&addressdetails=1`;
+    const res = await fetch(url, {
+      headers: {
+        'Accept': 'application/json'
+      }
+    });
+
+    if (!res.ok) return localMatches;
+    const data = await res.json();
+
+    const onlineMatches: MasterStation[] = data.map((item: any, idx: number) => {
+      const cleanName = (item.namedetails?.name || item.name || item.display_name.split(',')[0]).trim();
+      const id = 'stop-' + cleanName.toLowerCase().replace(/[^a-z0-9]+/g, '-') + '-' + idx;
+      const isBus = item.type === 'bus_stop' || item.class === 'highway';
+
+      return {
+        id,
+        name: cleanName,
+        cleanDbName: cleanName,
+        coordinates: [parseFloat(item.lon), parseFloat(item.lat)] as [number, number],
+        type: isBus ? 'bus' : 'rail',
+        dTicketNotice: 'Online ermittelte Haltestelle',
+        isCustom: true
+      };
+    });
+
+    // Merge and deduplicate by cleanDbName
+    const combined = [...localMatches];
+    for (const om of onlineMatches) {
+      if (!combined.some(c => c.cleanDbName?.toLowerCase() === om.cleanDbName?.toLowerCase())) {
+        combined.push(om);
+      }
+    }
+    return combined;
+  } catch (err) {
+    console.warn('Could not query online stops:', err);
+    return localMatches;
+  }
+}
+
+// Backwards-compatible aliases
+export const KEY_STATIONS = UNIFIED_STATION_CATALOG;
+export const POPULAR_ORIGIN_STATIONS = UNIFIED_STATION_CATALOG.slice(0, 10);
+export const ALL_PRESET_ORIGIN_STATIONS = UNIFIED_STATION_CATALOG;

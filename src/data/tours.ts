@@ -7,7 +7,6 @@ export const SKI_TOURS: SkiTour[] = [
   {
     id: 'kanzelwand',
     name: 'Kanzelwand',
-    subheading: 'Pistenskitour im Zweiländer-Skigebiet Fellhorn-Kanzelwand',
     mountainRange: 'Allgäuer Alpen',
     valley: 'Kleinwalsertal',
     type: 'day',
@@ -34,34 +33,22 @@ export const SKI_TOURS: SkiTour[] = [
       destinationStation: 'Riezlern Kanzelwandbahn',
       cleanDbStationName: 'Oberstdorf',
       destinationIbnr: '8004593',
-      lines: ['BRB RB 69', 'RE 17', 'Walserbus 1'],
-      transfers: 2,
-      approxTotalMinutes: 135,
+      destinationEva: '8004593',
       walkingDistanceMeters: 50,
       walkingDurationMinutes: 1,
       dTicketValidity: '100% gültig',
-      extraCostEuro: 0,
-      transitDescription: 'RB 69 nach Buchloe, RE 17 nach Oberstdorf, mit Walserbus 1 direkt zur Talstation Riezlern.',
-      steps: [
-        { station: 'Augsburg Haunstetter Str.', action: 'departure', line: 'BRB RB 69', timeHint: '06:18' },
-        { station: 'Buchloe', action: 'transfer', line: 'RE 17', timeHint: '06:45' },
-        { station: 'Oberstdorf Bahnhof', action: 'transfer', line: 'Walserbus 1', timeHint: '08:00' },
-        { station: 'Riezlern Kanzelwandbahn', action: 'arrival', timeHint: '08:25', note: 'Start direkt an der Piste' }
-      ]
+      extraCostEuro: 0
     },
     links: {
-      skitourenguruUrl: 'https://www.skitourenguru.ch/?search=Kanzelwand',
-      isVerifiedUrl: false,
+      
       webcamUrl: 'https://www.das-hoechste.de/winter/webcams/kanzelwand/'
     },
     rating: null,
-    curatedComment: 'Perfekte Ausweichtour bei hoher Lawinenwarnstufe oder schlechter Sicht. Durch den Walserbus bequem und 100% im D-Ticket.',
-    tips: ['Aufstieg am Pistenrand der Zwergalpbahn', 'Hütteneinkehr in der Kanzelwand-Bergstation']
-  },
+    curatedComment: 'Perfekte Ausweichtour bei hoher Lawinenwarnstufe oder schlechter Sicht. Durch den Walserbus bequem und 100% im D-Ticket.'
+    },
   {
     id: 'geisshorn',
     name: 'Geißhorn',
-    subheading: 'Klassische, formschöne Skitour im Talschluss des Gemsteltals',
     mountainRange: 'Allgäuer Alpen',
     valley: 'Kleinwalsertal',
     type: 'day',
@@ -88,34 +75,22 @@ export const SKI_TOURS: SkiTour[] = [
       destinationStation: 'Mittelberg Bödmen',
       cleanDbStationName: 'Oberstdorf',
       destinationIbnr: '8004593',
-      lines: ['BRB RB 69', 'RE 17', 'Walserbus 1'],
-      transfers: 2,
-      approxTotalMinutes: 145,
+      destinationEva: '8004593',
       walkingDistanceMeters: 100,
       walkingDurationMinutes: 2,
       dTicketValidity: '100% gültig',
-      extraCostEuro: 0,
-      transitDescription: 'RB 69 nach Buchloe, RE 17 nach Oberstdorf, Walserbus 1 bis Haltestelle Mittelberg Bödmen.',
-      steps: [
-        { station: 'Augsburg Haunstetter Str.', action: 'departure', line: 'BRB RB 69', timeHint: '06:18' },
-        { station: 'Buchloe', action: 'transfer', line: 'RE 17', timeHint: '06:45' },
-        { station: 'Oberstdorf Bahnhof', action: 'transfer', line: 'Walserbus 1', timeHint: '08:00' },
-        { station: 'Mittelberg Bödmen', action: 'arrival', timeHint: '08:40', note: 'Start ins Gemsteltal' }
-      ]
+      extraCostEuro: 0
     },
     links: {
-      skitourenguruUrl: 'https://www.skitourenguru.ch/?search=Geisshorn',
-      isVerifiedUrl: false,
+      
       webcamUrl: 'https://www.kleinwalsertal.com/de/Aktuelles-Service/Webcams'
     },
     rating: null,
-    curatedComment: 'Landschaftlich ein Traum durch das Gemsteltal. Erfordert sichere Verhältnisse im steilen Gipfelhang.',
-    tips: ['Früh starten wegen Sonneneinstrahlung im Kar', 'Gemstel-Schönesboden-Alpe für die Rückkehr vormerken']
-  },
+    curatedComment: 'Landschaftlich ein Traum durch das Gemsteltal. Erfordert sichere Verhältnisse im steilen Gipfelhang.'
+    },
   {
     id: 'guentlespitze',
     name: 'Güntlespitze',
-    subheading: 'Sehr beliebter Aussichtsberg über dem Derrenbachtal ab Baad',
     mountainRange: 'Allgäuer Alpen',
     valley: 'Kleinwalsertal',
     type: 'day',
@@ -142,33 +117,21 @@ export const SKI_TOURS: SkiTour[] = [
       destinationStation: 'Baad (Endstation Walserbus)',
       cleanDbStationName: 'Oberstdorf',
       destinationIbnr: '8004593',
-      lines: ['BRB RB 69', 'RE 17', 'Walserbus 1'],
-      transfers: 2,
-      approxTotalMinutes: 150,
+      destinationEva: '8004593',
       walkingDistanceMeters: 50,
       walkingDurationMinutes: 1,
       dTicketValidity: '100% gültig',
-      extraCostEuro: 0,
-      transitDescription: 'RB 69 nach Buchloe, RE 17 nach Oberstdorf, Walserbus 1 bis zur Endstation Baad.',
-      steps: [
-        { station: 'Augsburg Haunstetter Str.', action: 'departure', line: 'BRB RB 69', timeHint: '06:18' },
-        { station: 'Buchloe', action: 'transfer', line: 'RE 17', timeHint: '06:45' },
-        { station: 'Oberstdorf Bahnhof', action: 'transfer', line: 'Walserbus 1', timeHint: '08:00' },
-        { station: 'Baad', action: 'arrival', timeHint: '08:48', note: 'Direkt am Einstieg' }
-      ]
+      extraCostEuro: 0
     },
     links: {
-      skitourenguruUrl: 'https://www.skitourenguru.ch/?search=Guentlespitze',
-      isVerifiedUrl: false
+      
     },
     rating: null,
-    curatedComment: 'Der Skitouren-Klassiker ab Baad. Schöne, mäßig steile Nordosthänge mit super Pulverschnee-Chancen.',
-    tips: ['Im Hochwinter oft genialer Pulver', 'Spitzkehrenkönnen für den Gipfelaufbau nötig']
-  },
+    curatedComment: 'Der Skitouren-Klassiker ab Baad. Schöne, mäßig steile Nordosthänge mit super Pulverschnee-Chancen.'
+    },
   {
     id: 'grosser-widderstein',
     name: 'Großer Widderstein',
-    subheading: 'Alpine Hochtour mit Skidepot und anspruchsvollem Gipfelgrat',
     mountainRange: 'Allgäuer Alpen',
     valley: 'Kleinwalsertal',
     type: 'day',
@@ -195,33 +158,21 @@ export const SKI_TOURS: SkiTour[] = [
       destinationStation: 'Baad',
       cleanDbStationName: 'Oberstdorf',
       destinationIbnr: '8004593',
-      lines: ['BRB RB 69', 'RE 17', 'Walserbus 1'],
-      transfers: 2,
-      approxTotalMinutes: 150,
+      destinationEva: '8004593',
       walkingDistanceMeters: 50,
       walkingDurationMinutes: 1,
       dTicketValidity: '100% gültig',
-      extraCostEuro: 0,
-      transitDescription: 'RB 69 nach Buchloe, RE 17 nach Oberstdorf, Walserbus 1 bis Baad.',
-      steps: [
-        { station: 'Augsburg Haunstetter Str.', action: 'departure', line: 'BRB RB 69', timeHint: '06:18' },
-        { station: 'Buchloe', action: 'transfer', line: 'RE 17', timeHint: '06:45' },
-        { station: 'Oberstdorf', action: 'transfer', line: 'Walserbus 1', timeHint: '08:00' },
-        { station: 'Baad', action: 'arrival', timeHint: '08:48' }
-      ]
+      extraCostEuro: 0
     },
     links: {
-      skitourenguruUrl: 'https://www.skitourenguru.ch/?search=Grosser+Widderstein',
-      isVerifiedUrl: false
+      
     },
     rating: null,
-    curatedComment: 'Königstour im Kleinwalsertal! Gewaltige Kulisse. Skidepot am Einstieg zur Südrinne, Steigeisen & Helm obligatorisch.',
-    tips: ['Nur bei absolut sicheren Verhältnissen', 'Steigeisen und Leichtpickel mitnehmen']
-  },
+    curatedComment: 'Königstour im Kleinwalsertal! Gewaltige Kulisse. Skidepot am Einstieg zur Südrinne, Steigeisen & Helm obligatorisch.'
+    },
   {
     id: 'uentschenspitze',
     name: 'Üntschenspitze',
-    subheading: 'Einsamere Tour über das Bärgunttal auf einen rassigen Gipfel',
     mountainRange: 'Allgäuer Alpen',
     valley: 'Kleinwalsertal',
     type: 'day',
@@ -248,33 +199,21 @@ export const SKI_TOURS: SkiTour[] = [
       destinationStation: 'Baad',
       cleanDbStationName: 'Oberstdorf',
       destinationIbnr: '8004593',
-      lines: ['BRB RB 69', 'RE 17', 'Walserbus 1'],
-      transfers: 2,
-      approxTotalMinutes: 150,
+      destinationEva: '8004593',
       walkingDistanceMeters: 50,
       walkingDurationMinutes: 1,
       dTicketValidity: '100% gültig',
-      extraCostEuro: 0,
-      transitDescription: 'Mit Zug und Walserbus 1 bequem bis Baad.',
-      steps: [
-        { station: 'Augsburg Haunstetter Str.', action: 'departure', line: 'BRB RB 69', timeHint: '06:18' },
-        { station: 'Buchloe', action: 'transfer', line: 'RE 17', timeHint: '06:45' },
-        { station: 'Oberstdorf', action: 'transfer', line: 'Walserbus 1', timeHint: '08:00' },
-        { station: 'Baad', action: 'arrival', timeHint: '08:48' }
-      ]
+      extraCostEuro: 0
     },
     links: {
-      skitourenguruUrl: 'https://www.skitourenguru.ch/?search=Uentschenspitze',
-      isVerifiedUrl: false
+      
     },
     rating: null,
-    curatedComment: 'Sehr lohnend und oft ruhiger als die Güntlespitze gegenüber. Grandioser Blick in den Bregenzerwald.',
-    tips: ['Schöne Hänge im mittleren Teil', 'Gipfelhang steil']
-  },
+    curatedComment: 'Sehr lohnend und oft ruhiger als die Güntlespitze gegenüber. Grandioser Blick in den Bregenzerwald.'
+    },
   {
     id: 'nebelhorn-daumen',
     name: 'Nebelhorn / Großer Daumen',
-    subheading: 'Vom Nebelhorn ins Hochkar oder weiter über den Grat zum Daumen',
     mountainRange: 'Allgäuer Alpen',
     valley: 'Oberstdorf',
     type: 'day',
@@ -301,28 +240,18 @@ export const SKI_TOURS: SkiTour[] = [
       destinationStation: 'Oberstdorf Bahnhof',
       cleanDbStationName: 'Oberstdorf',
       destinationIbnr: '8004593',
-      lines: ['BRB RB 69', 'RE 17'],
-      transfers: 1,
-      approxTotalMinutes: 115,
+      destinationEva: '8004593',
       walkingDistanceMeters: 700,
       walkingDurationMinutes: 10,
       dTicketValidity: '100% gültig',
-      extraCostEuro: 0,
-      transitDescription: 'RB 69 nach Buchloe, RE 17 direkt nach Oberstdorf Bahnhof (in 1h55m erreichbar!). Zu Fuß 10min zur Nebelhornbahn.',
-      steps: [
-        { station: 'Augsburg Haunstetter Str.', action: 'departure', line: 'BRB RB 69', timeHint: '06:18' },
-        { station: 'Buchloe', action: 'transfer', line: 'RE 17', timeHint: '06:45' },
-        { station: 'Oberstdorf Bahnhof', action: 'arrival', timeHint: '08:12', note: '10 min Fußweg zur Talstation' }
-      ]
+      extraCostEuro: 0
     },
     links: {
-      skitourenguruUrl: 'https://www.skitourenguru.ch/?search=Grosser+Daumen',
-      isVerifiedUrl: false
+      
     },
     rating: null,
-    curatedComment: 'Sehr schneesichere Region im Allgäuer Hauptkamm. Bei hoher Lawinenstufe kann auf das gesicherte Nebelhorn-Skigebiet ausgewichen werden.',
-    tips: ['Direkte Zugverbindung macht diese Tour zeitlich extrem attraktiv ab Haunstetter Str.']
-  },
+    curatedComment: 'Sehr schneesichere Region im Allgäuer Hauptkamm. Bei hoher Lawinenstufe kann auf das gesicherte Nebelhorn-Skigebiet ausgewichen werden.'
+    },
 
   // ==========================================
   // PFRONTEN & TANNHEIMER TAL (RB 73 & Bus 120)
@@ -330,7 +259,6 @@ export const SKI_TOURS: SkiTour[] = [
   {
     id: 'breitenberg-ostlerhuette',
     name: 'Breitenberg / Ostlerhütte',
-    subheading: 'Direkt ab Bahnhof Pfronten-Steinach – Top Tagestour & Einkehr',
     mountainRange: 'Allgäuer Alpen',
     valley: 'Pfronten',
     type: 'day',
@@ -357,37 +285,25 @@ export const SKI_TOURS: SkiTour[] = [
       destinationStation: 'Bahnhof Pfronten-Steinach',
       cleanDbStationName: 'Pfronten-Steinach',
       destinationIbnr: '8004812',
-      lines: ['BRB RB 69', 'RE 17', 'RB 73'],
-      transfers: 2,
-      approxTotalMinutes: 120,
+      destinationEva: '8004812',
       walkingDistanceMeters: 50,
       walkingDurationMinutes: 1,
       dTicketValidity: '100% gültig',
-      extraCostEuro: 0,
-      transitDescription: 'RB 69 nach Buchloe, RE 17 nach Kempten, RB 73 direkt nach Pfronten-Steinach. Aussteigen und sofort anfellen!',
-      steps: [
-        { station: 'Augsburg Haunstetter Str.', action: 'departure', line: 'BRB RB 69', timeHint: '06:18' },
-        { station: 'Buchloe', action: 'transfer', line: 'RE 17', timeHint: '06:45' },
-        { station: 'Kempten (Allgäu) Hbf', action: 'transfer', line: 'RB 73', timeHint: '07:35' },
-        { station: 'Pfronten-Steinach', action: 'arrival', timeHint: '08:16', note: 'Startpunkt direkt am Bahnhofssteig' }
-      ]
+      extraCostEuro: 0
     },
     links: {
-      skitourenguruUrl: 'https://www.skitourenguru.ch/?search=Breitenberg',
-      isVerifiedUrl: false,
+      
       webcamUrl: 'https://www.breitenbergbahn.de/service/webcams/'
     },
     huts: [
       { name: 'Ostlerhütte', elevation: 1838, hasWinterRoom: false, davLink: 'https://www.ostlerhuette.de' }
     ],
     rating: null,
-    curatedComment: 'Der unangefochtene Klassiker für Öffi-Touren: Null Fußweg vom Zuggleis zum Schnee! Schöne Hütteneinkehr auf der Ostlerhütte.',
-    tips: ['Direkt ab Bahnhofsanlage aufsteigen', 'Kaiserschmarrn auf der Ostlerhütte genießen']
-  },
+    curatedComment: 'Der unangefochtene Klassiker für Öffi-Touren: Null Fußweg vom Zuggleis zum Schnee! Schöne Hütteneinkehr auf der Ostlerhütte.'
+    },
   {
     id: 'gaishorn',
     name: 'Gaishorn',
-    subheading: 'Höchster Skitourenberg im Tannheimer Tal mit grandioser Rundsicht',
     mountainRange: 'Tannheimer Berge',
     valley: 'Tannheimer Tal',
     type: 'day',
@@ -414,33 +330,21 @@ export const SKI_TOURS: SkiTour[] = [
       destinationStation: 'Tannheim Kreisverkehr',
       cleanDbStationName: 'Pfronten-Steinach',
       destinationIbnr: '8004812',
-      lines: ['BRB RB 69', 'RE 17', 'RB 73', 'VVT Bus 120'],
-      transfers: 3,
-      approxTotalMinutes: 145,
+      destinationEva: '8004812',
       walkingDistanceMeters: 100,
       walkingDurationMinutes: 2,
       dTicketValidity: 'Zusatzkosten nötig',
-      extraCostEuro: 4.20,
-      transitDescription: 'Bis Pfronten-Steinach mit D-Ticket, dann Bus 120 ins Tannheimer Tal (kleiner VVT-Bustarif ca. 4,20 €).',
-      steps: [
-        { station: 'Augsburg Haunstetter Str.', action: 'departure', line: 'BRB RB 69', timeHint: '06:18' },
-        { station: 'Kempten Hbf', action: 'transfer', line: 'RB 73', timeHint: '07:35' },
-        { station: 'Pfronten-Steinach', action: 'transfer', line: 'Bus 120', timeHint: '08:22' },
-        { station: 'Tannheim Kreisverkehr', action: 'arrival', timeHint: '08:44' }
-      ]
+      extraCostEuro: 4.20
     },
     links: {
-      skitourenguruUrl: 'https://www.skitourenguru.ch/?search=Gaishorn',
-      isVerifiedUrl: false
+      
     },
     rating: null,
-    curatedComment: 'Eine der besten Touren im Tannheimer Tal. Tolle Hänge im Vilsalpsee-Kessel und über das Gaiseck.',
-    tips: ['Gipfelflanke erfordert absolut stabile Lawinenlage', 'Früher Aufstieg lohnt sich']
-  },
+    curatedComment: 'Eine der besten Touren im Tannheimer Tal. Tolle Hänge im Vilsalpsee-Kessel und über das Gaiseck.'
+    },
   {
     id: 'ponten',
     name: 'Ponten',
-    subheading: 'Sehr beliebte Tour über das Stuibental ab Schattwald',
     mountainRange: 'Tannheimer Berge',
     valley: 'Tannheimer Tal',
     type: 'day',
@@ -467,33 +371,21 @@ export const SKI_TOURS: SkiTour[] = [
       destinationStation: 'Schattwald Wannenjochbahn',
       cleanDbStationName: 'Pfronten-Steinach',
       destinationIbnr: '8004812',
-      lines: ['BRB RB 69', 'RE 17', 'RB 73', 'VVT Bus 120'],
-      transfers: 3,
-      approxTotalMinutes: 140,
+      destinationEva: '8004812',
       walkingDistanceMeters: 50,
       walkingDurationMinutes: 1,
       dTicketValidity: 'Zusatzkosten nötig',
-      extraCostEuro: 4.00,
-      transitDescription: 'Über Pfronten-Steinach und VVT Bus 120 direkt zur Haltestelle Schattwald Wannenjochbahn.',
-      steps: [
-        { station: 'Augsburg Haunstetter Str.', action: 'departure', line: 'BRB RB 69', timeHint: '06:18' },
-        { station: 'Kempten Hbf', action: 'transfer', line: 'RB 73', timeHint: '07:35' },
-        { station: 'Pfronten-Steinach', action: 'transfer', line: 'Bus 120', timeHint: '08:22' },
-        { station: 'Schattwald Wannenjochbahn', action: 'arrival', timeHint: '08:38' }
-      ]
+      extraCostEuro: 4.00
     },
     links: {
-      skitourenguruUrl: 'https://www.skitourenguru.ch/?search=Ponten',
-      isVerifiedUrl: false
+      
     },
     rating: null,
-    curatedComment: 'Sehr lohnende Hänge im Stuibental. Lässt sich ideal mit dem Bschießer zu einer Rundtour verbinden!',
-    tips: ['Kombination Ponten + Bschießer ergibt eine fantastische Überschreitung']
-  },
+    curatedComment: 'Sehr lohnende Hänge im Stuibental. Lässt sich ideal mit dem Bschießer zu einer Rundtour verbinden!'
+    },
   {
     id: 'bschiesser',
     name: 'Bschießer',
-    subheading: 'Schöner Nachbargipfel des Ponten mit mäßiger Steilheit',
     mountainRange: 'Tannheimer Berge',
     valley: 'Tannheimer Tal',
     type: 'day',
@@ -520,31 +412,21 @@ export const SKI_TOURS: SkiTour[] = [
       destinationStation: 'Schattwald Wannenjochbahn',
       cleanDbStationName: 'Pfronten-Steinach',
       destinationIbnr: '8004812',
-      lines: ['BRB RB 69', 'RE 17', 'RB 73', 'VVT Bus 120'],
-      transfers: 3,
-      approxTotalMinutes: 140,
+      destinationEva: '8004812',
       walkingDistanceMeters: 50,
       walkingDurationMinutes: 1,
       dTicketValidity: 'Zusatzkosten nötig',
-      extraCostEuro: 4.00,
-      transitDescription: 'Gleiche Anreise wie Ponten nach Schattwald.',
-      steps: [
-        { station: 'Augsburg Haunstetter Str.', action: 'departure', line: 'BRB RB 69', timeHint: '06:18' },
-        { station: 'Schattwald Wannenjochbahn', action: 'arrival', timeHint: '08:38' }
-      ]
+      extraCostEuro: 4.00
     },
     links: {
-      skitourenguruUrl: 'https://www.skitourenguru.ch/?search=Bschiesser',
-      isVerifiedUrl: false
+      
     },
     rating: null,
-    curatedComment: 'Etwas sanfter als der Ponten, ideal bei mäßiger Lawinenlage und gutem Schnee.',
-    tips: ['Schöne Muldenabfahrt zurück ins Tal']
-  },
+    curatedComment: 'Etwas sanfter als der Ponten, ideal bei mäßiger Lawinenlage und gutem Schnee.'
+    },
   {
     id: 'litnisschrofen',
     name: 'Litnisschrofen',
-    subheading: 'Spannende Tour ab Nesselwängle Haller ins Strindental',
     mountainRange: 'Tannheimer Berge',
     valley: 'Tannheimer Tal',
     type: 'day',
@@ -571,31 +453,21 @@ export const SKI_TOURS: SkiTour[] = [
       destinationStation: 'Nesselwängle Haller',
       cleanDbStationName: 'Pfronten-Steinach',
       destinationIbnr: '8004812',
-      lines: ['BRB RB 69', 'RE 17', 'RB 73', 'VVT Bus 120'],
-      transfers: 3,
-      approxTotalMinutes: 150,
+      destinationEva: '8004812',
       walkingDistanceMeters: 80,
       walkingDurationMinutes: 1,
       dTicketValidity: 'Zusatzkosten nötig',
-      extraCostEuro: 4.50,
-      transitDescription: 'Mit Zug bis Pfronten-Steinach, dann Bus 120 bis Nesselwängle Haller.',
-      steps: [
-        { station: 'Augsburg Haunstetter Str.', action: 'departure', line: 'BRB RB 69', timeHint: '06:18' },
-        { station: 'Nesselwängle Haller', action: 'arrival', timeHint: '08:52' }
-      ]
+      extraCostEuro: 4.50
     },
     links: {
-      skitourenguruUrl: 'https://www.skitourenguru.ch/?search=Litnisschrofen',
-      isVerifiedUrl: false
+      
     },
     rating: null,
-    curatedComment: 'Markanter Felszacken. Skidepot am Sattel, die letzten Meter zum Gipfelkreuz zu Fuß über leichten Grat.',
-    tips: ['Skidepot vor dem Gipfelgrat anlegen', 'Sehr abwechslungsreiche Abfahrt']
-  },
+    curatedComment: 'Markanter Felszacken. Skidepot am Sattel, die letzten Meter zum Gipfelkreuz zu Fuß über leichten Grat.'
+    },
   {
     id: 'schneidspitze',
     name: 'Schneidspitze',
-    subheading: 'Abwechslungsreiche Skitour ab Nesselwängle Rauth',
     mountainRange: 'Tannheimer Berge',
     valley: 'Tannheimer Tal',
     type: 'day',
@@ -622,27 +494,18 @@ export const SKI_TOURS: SkiTour[] = [
       destinationStation: 'Nesselwängle Rauth',
       cleanDbStationName: 'Pfronten-Steinach',
       destinationIbnr: '8004812',
-      lines: ['BRB RB 69', 'RE 17', 'RB 73', 'VVT Bus 120'],
-      transfers: 3,
-      approxTotalMinutes: 152,
+      destinationEva: '8004812',
       walkingDistanceMeters: 100,
       walkingDurationMinutes: 2,
       dTicketValidity: 'Zusatzkosten nötig',
-      extraCostEuro: 4.50,
-      transitDescription: 'Zug bis Pfronten-Steinach, Bus 120 bis Nesselwängle Rauth.',
-      steps: [
-        { station: 'Augsburg Haunstetter Str.', action: 'departure', line: 'BRB RB 69', timeHint: '06:18' },
-        { station: 'Nesselwängle Rauth', action: 'arrival', timeHint: '08:55' }
-      ]
+      extraCostEuro: 4.50
     },
     links: {
-      skitourenguruUrl: 'https://www.skitourenguru.ch/?search=Schneidspitze',
-      isVerifiedUrl: false
+      
     },
     rating: null,
-    curatedComment: 'Steilere Wald- und Freihänge. Für fortgeschrittene Tourengeher mit sicherer Skitechnik.',
-    tips: ['Schneelage im Waldgürtel vorab prüfen']
-  },
+    curatedComment: 'Steilere Wald- und Freihänge. Für fortgeschrittene Tourengeher mit sicherer Skitechnik.'
+    },
 
   // ==========================================
   // OSTALLGÄU & FÜSSEN (RB 77 DIREKT)
@@ -650,7 +513,6 @@ export const SKI_TOURS: SkiTour[] = [
   {
     id: 'tegelberg',
     name: 'Tegelberg',
-    subheading: 'Pistenskitour mit königlichem Blick auf Schloss Neuschwanstein',
     mountainRange: 'Ammergauer Alpen',
     valley: 'Ostallgäu',
     type: 'day',
@@ -677,29 +539,19 @@ export const SKI_TOURS: SkiTour[] = [
       destinationStation: 'Schwangau Tegelbergbahn',
       cleanDbStationName: 'Füssen',
       destinationIbnr: '8000111',
-      lines: ['BRB RB 77 direkt', 'Bus 78'],
-      transfers: 1,
-      approxTotalMinutes: 110,
+      destinationEva: '8000111',
       walkingDistanceMeters: 50,
       walkingDurationMinutes: 1,
       dTicketValidity: '100% gültig',
-      extraCostEuro: 0,
-      transitDescription: 'BRB RB 77 DIREKT ab Augsburg Haunstetter Str. nach Füssen! Ab Füssen Bhf 12min mit Bus 78 direkt zur Tegelbergbahn.',
-      steps: [
-        { station: 'Augsburg Haunstetter Str.', action: 'departure', line: 'BRB RB 77', timeHint: '06:42' },
-        { station: 'Füssen Bahnhof', action: 'transfer', line: 'Bus 78', timeHint: '08:05' },
-        { station: 'Schwangau Tegelbergbahn', action: 'arrival', timeHint: '08:20', note: 'Startpunkt an der Piste' }
-      ]
+      extraCostEuro: 0
     },
     links: {
-      skitourenguruUrl: 'https://www.skitourenguru.ch/?search=Tegelberg',
-      isVerifiedUrl: false,
+      
       webcamUrl: 'https://www.tegelbergbahn.de/webcams'
     },
     rating: null,
-    curatedComment: 'DER Feierabend- und Schlechtwetter-Tipp! Direktzug RB 77 hält direkt vor der Haustür in Haunstetter Straße. 100% D-Ticket.',
-    tips: ['Jeden Donnerstag Tourengeher-Abend mit Hüttenabend auf dem Tegelberghaus', 'Blick auf Schloss Neuschwanstein bei Tag und Nacht fantastisch']
-  },
+    curatedComment: 'DER Feierabend- und Schlechtwetter-Tipp! Direktzug RB 77 hält direkt vor der Haustür in Haunstetter Straße. 100% D-Ticket.'
+    },
 
   // ==========================================
   // AUSSERFERNBAHN (RB 60 VIA PASING / GARMISCH / REUTTE)
@@ -707,7 +559,6 @@ export const SKI_TOURS: SkiTour[] = [
   {
     id: 'grubigstein',
     name: 'Grubigstein',
-    subheading: 'Pistenskitour direkt ab Bahnhof Lermoos mit Blick zur Zugspitze',
     mountainRange: 'Wetterstein / Mieming',
     valley: 'Außerfern',
     type: 'day',
@@ -734,33 +585,22 @@ export const SKI_TOURS: SkiTour[] = [
       destinationStation: 'Bahnhof Lermoos',
       cleanDbStationName: 'Lermoos',
       destinationIbnr: '8100085',
-      lines: ['MEX 16 / RE 9', 'RB 60 Außerfernbahn'],
-      transfers: 1,
-      approxTotalMinutes: 135,
+      destinationEva: '8100085',
       walkingDistanceMeters: 300,
       walkingDurationMinutes: 4,
       dTicketValidity: '100% gültig',
-      extraCostEuro: 0,
-      transitDescription: 'Ab Haunstetter Str. nach München-Pasing, dort in den durchgehenden Zug der Außerfernbahn nach Lermoos. 100% im D-Ticket!',
-      steps: [
-        { station: 'Augsburg Haunstetter Str.', action: 'departure', line: 'MEX 16', timeHint: '06:25' },
-        { station: 'München-Pasing', action: 'transfer', line: 'RB 60', timeHint: '07:12' },
-        { station: 'Bahnhof Lermoos', action: 'arrival', timeHint: '08:42', note: 'Nur 300m zur Talstation / Piste' }
-      ]
+      extraCostEuro: 0
     },
     links: {
-      skitourenguruUrl: 'https://www.skitourenguru.ch/?search=Grubigstein',
-      isVerifiedUrl: false,
+      
       webcamUrl: 'https://bergbahnen-langes.at/webcams/'
     },
     rating: null,
-    curatedComment: 'Unglaublicher Ausblick auf das Zugspitz-Massiv. Sichere Pistentour bei Neuschnee oder heiklen Lawinenstufen.',
-    tips: ['Einkehr in der Grubigalm oder Wolfratshauser Hütte', 'Abfahrt bis zum Bahnhof möglich']
-  },
+    curatedComment: 'Unglaublicher Ausblick auf das Zugspitz-Massiv. Sichere Pistentour bei Neuschnee oder heiklen Lawinenstufen.'
+    },
   {
     id: 'plattberg-pfuitjoechl',
     name: 'Kleines Pfuitjöchl / Plattberg',
-    subheading: 'Direkt ab Bahnhof Lähn – grandiose Freeride-Hänge der Ammergauer',
     mountainRange: 'Ammergauer Alpen',
     valley: 'Außerfern',
     type: 'day',
@@ -787,32 +627,21 @@ export const SKI_TOURS: SkiTour[] = [
       destinationStation: 'Bahnhof Lähn',
       cleanDbStationName: 'Lähn',
       destinationIbnr: '8100108',
-      lines: ['MEX 16', 'RB 60 Außerfernbahn'],
-      transfers: 1,
-      approxTotalMinutes: 140,
+      destinationEva: '8100108',
       walkingDistanceMeters: 50,
       walkingDurationMinutes: 1,
       dTicketValidity: '100% gültig',
-      extraCostEuro: 0,
-      transitDescription: 'Außerfernbahn RB 60 hält direkt am Bergbahnhof Lähn. Perfekte Öffi-Verbindung mit Null Umweg.',
-      steps: [
-        { station: 'Augsburg Haunstetter Str.', action: 'departure', line: 'MEX 16', timeHint: '06:25' },
-        { station: 'München-Pasing', action: 'transfer', line: 'RB 60', timeHint: '07:12' },
-        { station: 'Bahnhof Lähn', action: 'arrival', timeHint: '08:48', note: 'Start direkt an den Gleisen' }
-      ]
+      extraCostEuro: 0
     },
     links: {
-      skitourenguruUrl: 'https://www.skitourenguru.ch/?search=Plattberg',
-      isVerifiedUrl: false
+      
     },
     rating: null,
-    curatedComment: 'Eines der Juwele der Außerfernbahn! Traumhafte Skihänge über die Wiesmad-Mähder hinauf zum Pfuitjöchl.',
-    tips: ['Im Frühjahr wegen Südausrichtung rechtzeitig abfahren (Firntour!)']
-  },
+    curatedComment: 'Eines der Juwele der Außerfernbahn! Traumhafte Skihänge über die Wiesmad-Mähder hinauf zum Pfuitjöchl.'
+    },
   {
     id: 'thaneller',
     name: 'Thaneller',
-    subheading: 'Markante Pyramide mit Steilhang ab Berwang',
     mountainRange: 'Lechtaler Alpen',
     valley: 'Außerfern',
     type: 'day',
@@ -839,33 +668,21 @@ export const SKI_TOURS: SkiTour[] = [
       destinationStation: 'Bichlbach-Berwang',
       cleanDbStationName: 'Bichlbach-Berwang',
       destinationIbnr: '8100146',
-      lines: ['MEX 16', 'RB 60', 'Bus 152'],
-      transfers: 2,
-      approxTotalMinutes: 145,
+      destinationEva: '8100146',
       walkingDistanceMeters: 150,
       walkingDurationMinutes: 2,
       dTicketValidity: '100% gültig',
-      extraCostEuro: 0,
-      transitDescription: 'RB 60 nach Bichlbach-Berwang, dann 8min mit Bus 152 hinauf nach Berwang.',
-      steps: [
-        { station: 'Augsburg Haunstetter Str.', action: 'departure', line: 'MEX 16', timeHint: '06:25' },
-        { station: 'München-Pasing', action: 'transfer', line: 'RB 60', timeHint: '07:12' },
-        { station: 'Bichlbach-Berwang', action: 'transfer', line: 'Bus 152', timeHint: '08:52' },
-        { station: 'Berwang Ort', action: 'arrival', timeHint: '09:02' }
-      ]
+      extraCostEuro: 0
     },
     links: {
-      skitourenguruUrl: 'https://www.skitourenguru.ch/?search=Thaneller',
-      isVerifiedUrl: false
+      
     },
     rating: null,
-    curatedComment: 'Der Thaneller ist von weitem erkennbar. Gewaltiger Tiefblick ins Inntal und Zugspitzbecken.',
-    tips: ['Schlüssig bei Firn im Frühjahr', 'Harscheisen für die Querungen mitnehmen']
-  },
+    curatedComment: 'Der Thaneller ist von weitem erkennbar. Gewaltiger Tiefblick ins Inntal und Zugspitzbecken.'
+    },
   {
     id: 'bleispitze',
     name: 'Bleispitze',
-    subheading: 'Ruhige, panoramareiche Tour ab Bichlbächle',
     mountainRange: 'Lechtaler Alpen',
     valley: 'Außerfern',
     type: 'day',
@@ -892,32 +709,21 @@ export const SKI_TOURS: SkiTour[] = [
       destinationStation: 'Bichlbach-Berwang / Bichlbächle',
       cleanDbStationName: 'Bichlbach-Berwang',
       destinationIbnr: '8100146',
-      lines: ['MEX 16', 'RB 60', 'Ortsbus'],
-      transfers: 2,
-      approxTotalMinutes: 155,
+      destinationEva: '8100146',
       walkingDistanceMeters: 100,
       walkingDurationMinutes: 2,
       dTicketValidity: '100% gültig',
-      extraCostEuro: 0,
-      transitDescription: 'RB 60 nach Bichlbach, von dort Rufbus/Skibus nach Bichlbächle.',
-      steps: [
-        { station: 'Augsburg Haunstetter Str.', action: 'departure', line: 'MEX 16', timeHint: '06:25' },
-        { station: 'Bichlbach-Berwang', action: 'transfer', line: 'Bus', timeHint: '08:52' },
-        { station: 'Bichlbächle', action: 'arrival', timeHint: '09:08' }
-      ]
+      extraCostEuro: 0
     },
     links: {
-      skitourenguruUrl: 'https://www.skitourenguru.ch/?search=Bleispitze',
-      isVerifiedUrl: false
+      
     },
     rating: null,
-    curatedComment: 'Traumhafte Hänge über das Bichlbächler Jöchl. Wesentlich einsamer als die Nachbargipfel.',
-    tips: ['Schöne Wechte am Gipfel beachten', 'Lange Abfahrt bis ins Tal']
-  },
+    curatedComment: 'Traumhafte Hänge über das Bichlbächler Jöchl. Wesentlich einsamer als die Nachbargipfel.'
+    },
   {
     id: 'zugspitzplatt-gatterl',
     name: 'Zugspitzplatt / Gatterl',
-    subheading: 'Große Durchquerung von der Ehrwalder Alm übers Gatterl aufs Zugspitzplatt',
     mountainRange: 'Wetterstein',
     valley: 'Ehrwald',
     type: 'day',
@@ -944,29 +750,18 @@ export const SKI_TOURS: SkiTour[] = [
       destinationStation: 'Ehrwald Zugspitzbahn',
       cleanDbStationName: 'Ehrwald Zugspitzbahn',
       destinationIbnr: '8100148',
-      lines: ['MEX 16', 'RB 60', 'Ortsbus Ehrwald'],
-      transfers: 2,
-      approxTotalMinutes: 135,
+      destinationEva: '8100148',
       walkingDistanceMeters: 50,
       walkingDurationMinutes: 1,
       dTicketValidity: '100% gültig',
-      extraCostEuro: 0,
-      transitDescription: 'Mit der Außerfernbahn RB 60 direkt bis Ehrwald, Anschlussbus zur Ehrwalder Alm Talstation.',
-      steps: [
-        { station: 'Augsburg Haunstetter Str.', action: 'departure', line: 'MEX 16', timeHint: '06:25' },
-        { station: 'München-Pasing', action: 'transfer', line: 'RB 60', timeHint: '07:12' },
-        { station: 'Ehrwald Bahnhof', action: 'transfer', line: 'Skibus', timeHint: '08:35' },
-        { station: 'Ehrwalder Alm Talstation', action: 'arrival', timeHint: '08:48' }
-      ]
+      extraCostEuro: 0
     },
     links: {
-      skitourenguruUrl: 'https://www.skitourenguru.ch/?search=Zugspitzplatt',
-      isVerifiedUrl: false
+      
     },
     rating: null,
-    curatedComment: 'Ein Monumental-Klassiker! Vom Tiroler Außerfern durchs schmale Gatterl ins hochalpine Karstplateau der Zugspitze.',
-    tips: ['Gatterl-Passage ist drahtseilversichert (im Winter oft Schneerampe)', 'Bei stabiler Frühjahrslage ein Hochgenuss']
-  },
+    curatedComment: 'Ein Monumental-Klassiker! Vom Tiroler Außerfern durchs schmale Gatterl ins hochalpine Karstplateau der Zugspitze.'
+    },
 
   // ==========================================
   // WERDENFELS & KARWENDEL (RB 6 VIA PASING)
@@ -974,7 +769,6 @@ export const SKI_TOURS: SkiTour[] = [
   {
     id: 'osterfelderkopf',
     name: 'Osterfelderkopf',
-    subheading: 'Pistenskitour unter der Alpspitz-Nordwand ab Kreuzeckbahn',
     mountainRange: 'Wetterstein',
     valley: 'Garmisch-Partenkirchen',
     type: 'day',
@@ -1001,34 +795,22 @@ export const SKI_TOURS: SkiTour[] = [
       destinationStation: 'Garmisch-Partenkirchen / Kreuzeckbahn',
       cleanDbStationName: 'Garmisch-Partenkirchen',
       destinationIbnr: '8002220',
-      lines: ['MEX 16', 'RB 6 Werdenfelsbahn', 'Ortsbus Linie 2'],
-      transfers: 2,
-      approxTotalMinutes: 115,
+      destinationEva: '8002220',
       walkingDistanceMeters: 50,
       walkingDurationMinutes: 1,
       dTicketValidity: '100% gültig',
-      extraCostEuro: 0,
-      transitDescription: 'Haunstetter Str. nach Pasing, Werdenfelsbahn RB 6 nach Garmisch Hbf, mit Ortsbus Linie 2 direkt zur Kreuzeckbahn.',
-      steps: [
-        { station: 'Augsburg Haunstetter Str.', action: 'departure', line: 'MEX 16', timeHint: '06:25' },
-        { station: 'München-Pasing', action: 'transfer', line: 'RB 6', timeHint: '07:13' },
-        { station: 'Garmisch-Partenkirchen', action: 'transfer', line: 'Bus 2', timeHint: '08:21' },
-        { station: 'Kreuzeckbahn Talstation', action: 'arrival', timeHint: '08:35' }
-      ]
+      extraCostEuro: 0
     },
     links: {
-      skitourenguruUrl: 'https://www.skitourenguru.ch/?search=Osterfelderkopf',
-      isVerifiedUrl: false,
+      
       webcamUrl: 'https://zugspitze.de/de/Service-Informationen/Webcams'
     },
     rating: null,
-    curatedComment: 'Atemberaubende Kulisse direkt unter der Alpspitz-Nordwand. Top lawinensichere Pistentour mit knackigen Höhenmetern.',
-    tips: ['Kandahar-Abfahrt für die sportliche Rückfahrt', 'Ausgewiesene Skitouren-Aufstiegsroute beachten']
-  },
+    curatedComment: 'Atemberaubende Kulisse direkt unter der Alpspitz-Nordwand. Top lawinensichere Pistentour mit knackigen Höhenmetern.'
+    },
   {
     id: 'dammkar',
     name: 'Dammkar',
-    subheading: 'Deutschlands legendärste Freeride- und Skitourenrinne im Karwendel',
     mountainRange: 'Karwendel',
     valley: 'Mittenwald',
     type: 'day',
@@ -1055,36 +837,25 @@ export const SKI_TOURS: SkiTour[] = [
       destinationStation: 'Bahnhof Mittenwald',
       cleanDbStationName: 'Mittenwald',
       destinationIbnr: '8000257',
-      lines: ['MEX 16', 'RB 6 Werdenfelsbahn'],
-      transfers: 1,
-      approxTotalMinutes: 130,
+      destinationEva: '8000257',
       walkingDistanceMeters: 100,
       walkingDurationMinutes: 2,
       dTicketValidity: '100% gültig',
-      extraCostEuro: 0,
-      transitDescription: 'Haunstetter Str. nach Pasing, Werdenfelsbahn RB 6 direkt nach Bahnhof Mittenwald. 100% D-Ticket.',
-      steps: [
-        { station: 'Augsburg Haunstetter Str.', action: 'departure', line: 'MEX 16', timeHint: '06:25' },
-        { station: 'München-Pasing', action: 'transfer', line: 'RB 6', timeHint: '07:13' },
-        { station: 'Mittenwald Bahnhof', action: 'arrival', timeHint: '08:38', note: 'Direkter Fußweg ins Dammkar' }
-      ]
+      extraCostEuro: 0
     },
     links: {
-      skitourenguruUrl: 'https://www.skitourenguru.ch/?search=Dammkar',
-      isVerifiedUrl: false,
+      
       webcamUrl: 'https://www.karwendelbahn.de/webcams/'
     },
     huts: [
       { name: 'Dammkarhütte', elevation: 1667, hasWinterRoom: true, davLink: 'https://www.dammkarhuette.de' }
     ],
     rating: null,
-    curatedComment: 'Der Inbegriff einer alpinen Skitour! Gewaltige Felswände rechts und links im Dammkar. Nur bei sicheren Firn-/Schneeverhältnissen!',
-    tips: ['Einkehr in der urigen Dammkarhütte', 'Dammkar-Tunnel zur Karwendelbahn als Durchgang nutzbar']
-  },
+    curatedComment: 'Der Inbegriff einer alpinen Skitour! Gewaltige Felswände rechts und links im Dammkar. Nur bei sicheren Firn-/Schneeverhältnissen!'
+    },
   {
     id: 'pleisenspitze',
     name: 'Pleisenspitze',
-    subheading: 'Große Karwendel-Tour direkt ab Grenzbahnhof Scharnitz',
     mountainRange: 'Karwendel',
     valley: 'Scharnitz',
     type: 'day',
@@ -1111,35 +882,24 @@ export const SKI_TOURS: SkiTour[] = [
       destinationStation: 'Bahnhof Scharnitz',
       cleanDbStationName: 'Scharnitz',
       destinationIbnr: '8100063',
-      lines: ['MEX 16', 'RB 6 / S6 Werdenfelsbahn'],
-      transfers: 1,
-      approxTotalMinutes: 140,
+      destinationEva: '8100063',
       walkingDistanceMeters: 50,
       walkingDurationMinutes: 1,
       dTicketValidity: '100% gültig',
-      extraCostEuro: 0,
-      transitDescription: 'Werdenfelsbahn fährt grenzüberschreitend bis Scharnitz Bahnhof! Laut Tarifbestimmungen Anlage 2 ist Scharnitz zu 100% im Deutschland-Ticket inkludiert!',
-      steps: [
-        { station: 'Augsburg Haunstetter Str.', action: 'departure', line: 'MEX 16', timeHint: '06:25' },
-        { station: 'München-Pasing', action: 'transfer', line: 'RB 6', timeHint: '07:13' },
-        { station: 'Bahnhof Scharnitz', action: 'arrival', timeHint: '08:49', note: 'Startpunkt direkt am Bahnhof' }
-      ]
+      extraCostEuro: 0
     },
     links: {
-      skitourenguruUrl: 'https://www.skitourenguru.ch/?search=Pleisenspitze',
-      isVerifiedUrl: false
+      
     },
     huts: [
       { name: 'Pleisenhütte', elevation: 1757, hasWinterRoom: true, davLink: 'https://www.pleisenhuette.at' }
     ],
     rating: null,
-    curatedComment: '1600 Höhenmeter Konditionstest direkt vom Bahnsteig Scharnitz. Gewaltiges Panorama über das gesamte Karwendel.',
-    tips: ['Pleisenhütte am Wochenende oft bewirtschaftet', 'Bei Frühjahrsfirn ein unvergleichlicher Genuss']
-  },
+    curatedComment: '1600 Höhenmeter Konditionstest direkt vom Bahnsteig Scharnitz. Gewaltiges Panorama über das gesamte Karwendel.'
+    },
   {
     id: 'seefelder-joch',
     name: 'Seefelder Joch',
-    subheading: 'Pistenskitour ab Bahnhof Seefeld im sonnigen Hochtal',
     mountainRange: 'Karwendel',
     valley: 'Seefeld in Tirol',
     type: 'day',
@@ -1166,33 +926,22 @@ export const SKI_TOURS: SkiTour[] = [
       destinationStation: 'Bahnhof Seefeld in Tirol',
       cleanDbStationName: 'Seefeld in Tirol',
       destinationIbnr: '8100062',
-      lines: ['MEX 16', 'S6 Werdenfels/ÖBB'],
-      transfers: 1,
-      approxTotalMinutes: 150,
+      destinationEva: '8100062',
       walkingDistanceMeters: 400,
       walkingDurationMinutes: 5,
       dTicketValidity: 'Zusatzkosten nötig',
-      extraCostEuro: 3.80,
-      transitDescription: 'Mit Werdenfelsbahn bis Scharnitz (D-Ticket gültig), ab Scharnitz 10 Minuten Weiterfahrt mit ÖBB S6 nach Seefeld (ÖBB Teilstrecke ca. 3,80 €).',
-      steps: [
-        { station: 'Augsburg Haunstetter Str.', action: 'departure', line: 'MEX 16', timeHint: '06:25' },
-        { station: 'München-Pasing', action: 'transfer', line: 'S6', timeHint: '07:13' },
-        { station: 'Bahnhof Seefeld in Tirol', action: 'arrival', timeHint: '09:05', note: 'Kurzer Fußweg zur Rosshütte Talstation' }
-      ]
+      extraCostEuro: 3.80
     },
     links: {
-      skitourenguruUrl: 'https://www.skitourenguru.ch/?search=Seefelder+Joch',
-      isVerifiedUrl: false,
+      
       webcamUrl: 'https://www.rosshuette.at/webcams/'
     },
     rating: null,
-    curatedComment: 'Sehr beliebte, schneesichere Pistentour auf das Seefelder Joch. Ideal für Einsteiger und bei kritischer Lawinenlage.',
-    tips: ['Schöne Einkehrmöglichkeiten auf der Rosshütte']
-  },
+    curatedComment: 'Sehr beliebte, schneesichere Pistentour auf das Seefelder Joch. Ideal für Einsteiger und bei kritischer Lawinenlage.'
+    },
   {
     id: 'seefelder-spitze',
     name: 'Seefelder Spitze',
-    subheading: 'Weiterführung vom Seefelder Joch auf die schrofige Spitze',
     mountainRange: 'Karwendel',
     valley: 'Seefeld in Tirol',
     type: 'day',
@@ -1219,31 +968,21 @@ export const SKI_TOURS: SkiTour[] = [
       destinationStation: 'Bahnhof Seefeld in Tirol',
       cleanDbStationName: 'Seefeld in Tirol',
       destinationIbnr: '8100062',
-      lines: ['MEX 16', 'S6 Werdenfels/ÖBB'],
-      transfers: 1,
-      approxTotalMinutes: 150,
+      destinationEva: '8100062',
       walkingDistanceMeters: 400,
       walkingDurationMinutes: 5,
       dTicketValidity: 'Zusatzkosten nötig',
-      extraCostEuro: 3.80,
-      transitDescription: 'Gleiche bequeme Zuganreise wie Seefelder Joch nach Seefeld in Tirol.',
-      steps: [
-        { station: 'Augsburg Haunstetter Str.', action: 'departure', line: 'MEX 16', timeHint: '06:25' },
-        { station: 'Bahnhof Seefeld in Tirol', action: 'arrival', timeHint: '09:05' }
-      ]
+      extraCostEuro: 3.80
     },
     links: {
-      skitourenguruUrl: 'https://www.skitourenguru.ch/?search=Seefelder+Spitze',
-      isVerifiedUrl: false
+      
     },
     rating: null,
-    curatedComment: 'Vom Joch über den luftigen Grat zur Spitze. Wunderbarer Blick auf die Wettersteinwand und ins Inntal.',
-    tips: ['Gratübergang erfordert Trittsicherheit']
-  },
+    curatedComment: 'Vom Joch über den luftigen Grat zur Spitze. Wunderbarer Blick auf die Wettersteinwand und ins Inntal.'
+    },
   {
     id: 'hohe-munde',
     name: 'Hohe Munde',
-    subheading: 'Monumentale Skitour über die steile Rauthhütte und Ostflanke',
     mountainRange: 'Mieminger Kette',
     valley: 'Seefeld in Tirol / Leutasch',
     type: 'day',
@@ -1270,32 +1009,21 @@ export const SKI_TOURS: SkiTour[] = [
       destinationStation: 'Leutasch Buchen (Bus 430)',
       cleanDbStationName: 'Seefeld in Tirol',
       destinationIbnr: '8100062',
-      lines: ['MEX 16', 'S6', 'Bus 430'],
-      transfers: 2,
-      approxTotalMinutes: 165,
+      destinationEva: '8100062',
       walkingDistanceMeters: 100,
       walkingDurationMinutes: 2,
       dTicketValidity: 'Zusatzkosten nötig',
-      extraCostEuro: 5.50,
-      transitDescription: 'S6 nach Seefeld, von dort Bus 430 nach Leutasch Buchen / Moos.',
-      steps: [
-        { station: 'Augsburg Haunstetter Str.', action: 'departure', line: 'MEX 16', timeHint: '06:25' },
-        { station: 'München-Pasing', action: 'transfer', line: 'S6', timeHint: '07:13' },
-        { station: 'Seefeld Bahnhof', action: 'transfer', line: 'Bus 430', timeHint: '09:12' },
-        { station: 'Leutasch Buchen', action: 'arrival', timeHint: '09:28' }
-      ]
+      extraCostEuro: 5.50
     },
     links: {
-      skitourenguruUrl: 'https://www.skitourenguru.ch/?search=Hohe+Munde',
-      isVerifiedUrl: false
+      
     },
     huts: [
       { name: 'Rauthhütte', elevation: 1605, hasWinterRoom: false, davLink: 'https://www.rauthhuette.at' }
     ],
     rating: null,
-    curatedComment: 'Eine der spektakulärsten Skitouren der Nordalpen! Die steile Ostflanke ist nur bei absolut bombenfesten Verhältnissen machbar.',
-    tips: ['Sehr früher Aufbruch im Frühjahr zwingend', 'Harscheisen und Steigeisen erforderlich']
-  },
+    curatedComment: 'Eine der spektakulärsten Skitouren der Nordalpen! Die steile Ostflanke ist nur bei absolut bombenfesten Verhältnissen machbar.'
+    },
 
   // ==========================================
   // MEHRTAGESOUREN & DAV-HÜTTEN (FUTURE-PROOF EXTENSION)
@@ -1303,7 +1031,6 @@ export const SKI_TOURS: SkiTour[] = [
   {
     id: 'mindelheimer-rundtour',
     name: 'Mindelheimer Hütte Rundtour',
-    subheading: '2-tägige Hochtour im Allgäuer Hauptkamm mit Winterraum-Übernachtung',
     mountainRange: 'Allgäuer Alpen',
     valley: 'Kleinwalsertal',
     type: 'multiday',
@@ -1330,23 +1057,14 @@ export const SKI_TOURS: SkiTour[] = [
       destinationStation: 'Baad',
       cleanDbStationName: 'Oberstdorf',
       destinationIbnr: '8004593',
-      lines: ['BRB RB 69', 'RE 17', 'Walserbus 1'],
-      transfers: 2,
-      approxTotalMinutes: 150,
+      destinationEva: '8004593',
       walkingDistanceMeters: 50,
       walkingDurationMinutes: 1,
       dTicketValidity: '100% gültig',
-      extraCostEuro: 0,
-      transitDescription: 'Bequem mit Bahn und Walserbus nach Baad, Rundtour über 2 Tage mit Rückkehr nach Baad.',
-      steps: [
-        { station: 'Augsburg Haunstetter Str.', action: 'departure', line: 'BRB RB 69', timeHint: '06:18' },
-        { station: 'Oberstdorf', action: 'transfer', line: 'Walserbus 1', timeHint: '08:00' },
-        { station: 'Baad', action: 'arrival', timeHint: '08:48' }
-      ]
+      extraCostEuro: 0
     },
     links: {
-      skitourenguruUrl: 'https://www.skitourenguru.ch/?search=Mindelheimer+Huette',
-      isVerifiedUrl: false,
+      
       alpenvereinUrl: 'https://www.alpenvereinaktiv.com/de/bewirtschaftete-huette/mindelheimer-huette/7027581/'
     },
     huts: [
@@ -1359,7 +1077,6 @@ export const SKI_TOURS: SkiTour[] = [
       }
     ],
     rating: null,
-    curatedComment: 'Perfekter Einstieg in Mehrtages-Skitouren. Toller Stützpunkt mit grandiosen Überschreitungsmöglichkeiten.',
-    tips: ['AV-Schlüssel nicht vergessen', 'Ausreichend Verpflegung für 2 Tage mitnehmen']
-  }
+    curatedComment: 'Perfekter Einstieg in Mehrtages-Skitouren. Toller Stützpunkt mit grandiosen Überschreitungsmöglichkeiten.'
+    }
 ];

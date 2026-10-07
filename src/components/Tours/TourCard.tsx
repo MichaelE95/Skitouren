@@ -1,8 +1,8 @@
 import React from 'react';
-import { SkiTour, AvalancheRegion, SACCategory } from '../../types';
+import { SkiTour, AvalancheRegion } from '../../types';
 import { getTourAvalancheRisk } from '../../services/avalancheService';
 import { EAWS_COLORS } from '../../data/avalancheData';
-import { Clock, Train, Star, AlertTriangle, ArrowRight, ShieldCheck, Footprints, AlertCircle } from 'lucide-react';
+import { Clock, Train, Star, AlertTriangle, ArrowRight, ShieldCheck, Footprints, Loader2 } from 'lucide-react';
 
 interface TourCardProps {
   tour: SkiTour;
@@ -22,9 +22,14 @@ export const TourCard: React.FC<TourCardProps> = ({
   const currentRisk = getTourAvalancheRisk(tour, avalancheRegions);
   const eaws = EAWS_COLORS[currentRisk.dangerLevel] || EAWS_COLORS[2];
 
-  const hours = Math.floor(tour.transit.approxTotalMinutes / 60);
-  const minutes = tour.transit.approxTotalMinutes % 60;
-  const transitTimeStr = `${hours}h ${minutes > 0 ? `${minutes}m` : ''}`;
+  const liveJourney = tour.transit.liveJourney;
+  const totalTravelMinutes = liveJourney
+    ? liveJourney.durationMinutes + tour.transit.walkingDurationMinutes
+    : null;
+
+  const totalTimeStr = totalTravelMinutes !== null
+    ? `${Math.floor(totalTravelMinutes / 60)}h ${totalTravelMinutes % 60 > 0 ? `${totalTravelMinutes % 60}m` : ''}`
+    : null;
 
   const diffBadgeColor = {
     'L': 'bg-emerald-50 text-emerald-700 border-emerald-200',
@@ -55,8 +60,12 @@ export const TourCard: React.FC<TourCardProps> = ({
         <div>
           <div className="flex items-center space-x-1.5 text-xs text-slate-500 font-medium mb-0.5">
             <span>{tour.mountainRange}</span>
-            <span>•</span>
-            <span>{tour.valley}</span>
+            {tour.valley && (
+              <>
+                <span>•</span>
+                <span>{tour.valley}</span>
+              </>
+            )}
           </div>
           <h3 className="font-bold text-slate-900 text-base group-hover:text-alpine-700 transition-colors flex items-center space-x-1.5">
             <span>{tour.name}</span>
@@ -87,10 +96,6 @@ export const TourCard: React.FC<TourCardProps> = ({
         </div>
       </div>
 
-      <p className="text-xs text-slate-600 line-clamp-2 mb-3">
-        {tour.subheading}
-      </p>
-
       {/* Stats Badges Grid */}
       <div className="grid grid-cols-4 gap-1.5 bg-slate-50/80 p-2 rounded-xl mb-3 text-center border border-slate-100">
         <div>
@@ -106,47 +111,51 @@ export const TourCard: React.FC<TourCardProps> = ({
           <div className="text-xs font-bold text-slate-800">{tour.distanceKm} km</div>
         </div>
         <div>
-          <div className="text-[10px] text-slate-500 font-medium">Dauer</div>
+          <div className="text-[10px] text-slate-500 font-medium">Tourdauer</div>
           <div className="text-xs font-bold text-slate-800">{tour.estimatedTourDurationHours} h</div>
         </div>
       </div>
 
-      {/* Transit & Walking Connection */}
+      {/* Public Transit & Walking Connection */}
       <div className="space-y-1.5 pt-1 border-t border-slate-100">
         <div className="flex items-center justify-between text-xs">
           <div className="flex items-center space-x-1.5 text-slate-700 font-medium truncate">
             <Train className="w-3.5 h-3.5 text-alpine-600 shrink-0" />
             <span className="truncate font-semibold">
-              {tour.transit.liveJourney
-                ? tour.transit.liveJourney.legs
+              {liveJourney
+                ? liveJourney.legs
                     .filter(l => l.mode !== 'walk')
                     .map(l => l.lineName)
-                    .join(' → ') || `Bahn nach ${tour.transit.cleanDbStationName}`
+                    .join(' → ') || `Ziel: ${tour.transit.cleanDbStationName}`
                 : `Ziel: ${tour.transit.cleanDbStationName}`}
             </span>
           </div>
+
           <div className="flex items-center space-x-1 text-slate-900 font-bold shrink-0">
             <Clock className="w-3 h-3 text-slate-500" />
-            <span>
-              {tour.transit.liveJourney
-                ? `${Math.floor((tour.transit.liveJourney.durationMinutes + tour.transit.walkingDurationMinutes) / 60)}h ${(tour.transit.liveJourney.durationMinutes + tour.transit.walkingDurationMinutes) % 60}m`
-                : transitTimeStr}
-            </span>
+            {totalTimeStr ? (
+              <span>{totalTimeStr}</span>
+            ) : (
+              <span className="flex items-center space-x-1 text-[11px] text-alpine-600 animate-pulse font-normal">
+                <Loader2 className="w-3 h-3 animate-spin" />
+                <span>Wird berechnet...</span>
+              </span>
+            )}
           </div>
         </div>
 
         {/* Live departure time badge */}
-        {tour.transit.liveJourney && (
+        {liveJourney && (
           <div className="flex items-center justify-between text-[11px] text-sky-800 bg-sky-50 px-2 py-0.5 rounded-lg border border-sky-200">
-            <span className="font-semibold">Abfahrt: <strong>{tour.transit.liveJourney.departureTime}</strong></span>
-            <span>Ankunft: <strong>{tour.transit.liveJourney.arrivalTime}</strong></span>
+            <span className="font-semibold">Abfahrt: <strong>{liveJourney.departureTime}</strong></span>
+            <span>Ankunft: <strong>{liveJourney.arrivalTime}</strong></span>
             <span className="text-[10px] text-sky-600 font-medium">
-              {tour.transit.liveJourney.transfers === 0 ? 'Direktzug' : `${tour.transit.liveJourney.transfers}x Umstieg`}
+              {liveJourney.transfers === 0 ? 'Direktzug' : `${liveJourney.transfers}x Umstieg`}
             </span>
           </div>
         )}
 
-        {/* Footprints walking connection */}
+        {/* Walking connection from station to trailhead */}
         {tour.transit.walkingDurationMinutes > 0 && (
           <div className="flex items-center space-x-1 text-[11px] text-slate-500">
             <Footprints className="w-3 h-3 text-slate-400" />
@@ -156,7 +165,6 @@ export const TourCard: React.FC<TourCardProps> = ({
 
         {/* D-Ticket Validity & Avalanche Risk Pill */}
         <div className="flex items-center justify-between text-[11px] pt-1">
-          {/* D-Ticket Badge */}
           {tour.transit.dTicketValidity === '100% gültig' ? (
             <span className="inline-flex items-center space-x-1 text-emerald-800 bg-emerald-100/70 font-semibold px-2 py-0.5 rounded-full border border-emerald-300/60">
               <span>✓ 100% D-Ticket</span>
@@ -167,7 +175,7 @@ export const TourCard: React.FC<TourCardProps> = ({
             </span>
           )}
 
-          {/* Avalanche Indicator (Handles Off-Season gracefully!) */}
+          {/* Avalanche Indicator */}
           {!currentRisk.isSeasonActive ? (
             <span className="inline-flex items-center space-x-1 font-semibold text-slate-600 bg-slate-100 px-2 py-0.5 rounded-full border border-slate-300 text-[10px]">
               <span>❄️ Saisonpause</span>
@@ -186,14 +194,6 @@ export const TourCard: React.FC<TourCardProps> = ({
             </span>
           )}
         </div>
-
-        {/* Unverified Skitourenguru warning if applicable */}
-        {!tour.links.isVerifiedUrl && (
-          <div className="text-[10px] text-amber-800 bg-amber-50 px-2 py-0.5 rounded border border-amber-200 flex items-center space-x-1 mt-1">
-            <AlertCircle className="w-3 h-3 text-amber-600 shrink-0" />
-            <span className="truncate">Skitourenguru-Link unbestätigt (Suche aktiv)</span>
-          </div>
-        )}
       </div>
 
       {/* Card Footer: Interactive Rating & Open CTA */}

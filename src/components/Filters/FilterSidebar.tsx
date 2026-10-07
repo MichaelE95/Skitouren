@@ -19,6 +19,7 @@ interface FilterSidebarProps {
   filteredToursCount: number;
   availableRanges: string[];
   originStation: OriginStation;
+  onCloseMobile?: () => void;
 }
 
 export const FilterSidebar: React.FC<FilterSidebarProps> = ({
