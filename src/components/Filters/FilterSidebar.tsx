@@ -54,7 +54,7 @@ export const FilterSidebar: React.FC<FilterSidebarProps> = ({
       searchQuery: '',
       onlyDTicket: false,
       onlyPiste: false,
-      maxTransitDurationMinutes: 240,
+      maxTransitDurationMinutes: 300,
       maxAvalancheLevel: 4,
       minElevationGain: 0,
       maxElevationGain: 2000,
@@ -70,7 +70,7 @@ export const FilterSidebar: React.FC<FilterSidebarProps> = ({
     filters.searchQuery !== '' ||
     filters.onlyDTicket ||
     filters.onlyPiste ||
-    filters.maxTransitDurationMinutes < 240 ||
+    filters.maxTransitDurationMinutes < 300 ||
     filters.maxElevationGain < 2000 ||
     filters.selectedDifficulties.length > 0 ||
     filters.selectedRanges.length > 0 ||
@@ -213,18 +213,18 @@ export const FilterSidebar: React.FC<FilterSidebarProps> = ({
           </div>
           <input
             type="range"
-            min="90"
-            max="180"
-            step="10"
+            min="60"
+            max="300"
+            step="15"
             value={filters.maxTransitDurationMinutes}
             onChange={(e) => update({ maxTransitDurationMinutes: Number(e.target.value) })}
             className="w-full accent-alpine-600 cursor-pointer"
           />
           <div className="flex justify-between text-[10px] text-slate-400">
-            <span>1h 30m</span>
+            <span>1h 00m</span>
             <span>2h 00m</span>
-            <span>2h 30m</span>
-            <span>3h 00m</span>
+            <span>3h 30m</span>
+            <span>5h 00m</span>
           </div>
         </div>
 

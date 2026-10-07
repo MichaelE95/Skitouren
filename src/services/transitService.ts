@@ -7,12 +7,13 @@ const journeyCache = new Map<string, LiveJourneyResult>();
 /**
  * Builds a 100% verified DB Navigator / bahn.de deep-link.
  * Uses exact HAFAS parameters so the new bahn.de Single Page App executes the search automatically.
- * Automatically enables `dlt=true` to filter for Deutschland-Ticket / Regionalverkehr.
+ * Automatically enables `dlt=true` and regional transit modes `vm=03,04,05,06,07,08,09` if onlyRegional is active.
  */
 export function buildWorkingDbUrl(
   origin: { name: string; coordinates: [number, number]; eva?: string; cleanDbName?: string },
   destination: { name: string; coordinates: [number, number]; eva?: string; cleanDbName?: string },
-  departureDateTimeIso?: string
+  departureDateTimeIso?: string,
+  onlyRegional: boolean = true
 ): string {
   const originName = origin.cleanDbName || origin.name;
   const destName = destination.cleanDbName || destination.name;
@@ -24,7 +25,7 @@ export function buildWorkingDbUrl(
 
   const hd = departureDateTimeIso ? departureDateTimeIso.slice(0, 19) : new Date().toISOString().slice(0, 19);
 
-  return (
+  let url = (
     `https://www.bahn.de/buchung/fahrplan/suche#sts=true` +
     `&so=${encodeURIComponent(originName)}` +
     `&zo=${encodeURIComponent(destName)}` +
@@ -36,10 +37,17 @@ export function buildWorkingDbUrl(
     `&kl=2` +
     `&r=13:16:KLASSENLOS:1` +
     `&hd=${encodeURIComponent(hd)}` +
-    `&hza=D` +
-    `&dlt=true` + // Deutschland-Ticket Nahverkehr filter!
-    `&s=true`
+    `&hza=D`
   );
+
+  if (onlyRegional) {
+    url += `&dlt=true&vm=03,04,05,06,07,08,09`;
+  } else {
+    url += `&dlt=false`;
+  }
+
+  url += `&s=true`;
+  return url;
 }
 
 /**
@@ -48,7 +56,8 @@ export function buildWorkingDbUrl(
 export function buildDbNavigatorUrl(
   originName: string,
   destinationName: string,
-  departureDateTimeIso?: string
+  departureDateTimeIso?: string,
+  onlyRegional: boolean = true
 ): string {
   const foundOrigin = ALL_PRESET_ORIGIN_STATIONS.find(s => s.name === originName || s.cleanDbName === originName);
   const foundDest = KEY_STATIONS.find(s => s.name === destinationName || s.cleanDbName === destinationName);
@@ -67,7 +76,7 @@ export function buildDbNavigatorUrl(
     cleanDbName: destinationName
   };
 
-  return buildWorkingDbUrl(originStation, destStation, departureDateTimeIso);
+  return buildWorkingDbUrl(originStation, destStation, departureDateTimeIso, onlyRegional);
 }
 
 /**
@@ -108,9 +117,10 @@ export async function fetchLiveTransitPlan(
   destStationName: string,
   destEva: string = '8000000',
   destCleanDbName?: string,
-  departureDateTimeIso?: string
+  departureDateTimeIso?: string,
+  onlyRegional: boolean = true
 ): Promise<LiveJourneyResult | null> {
-  const cacheKey = `${origin.id}_${destinationCoords[0].toFixed(4)},${destinationCoords[1].toFixed(4)}_${departureDateTimeIso || 'now'}`;
+  const cacheKey = `${origin.id}_${destinationCoords[0].toFixed(4)},${destinationCoords[1].toFixed(4)}_${departureDateTimeIso || 'now'}_${onlyRegional ? 'regional' : 'all'}`;
   if (journeyCache.has(cacheKey)) {
     return journeyCache.get(cacheKey)!;
   }
@@ -119,7 +129,13 @@ export async function fetchLiveTransitPlan(
     const fromPlace = `${origin.coordinates[1]},${origin.coordinates[0]}`;
     const toPlace = `${destinationCoords[1]},${destinationCoords[0]}`;
 
-    let apiUrl = `https://api.transitous.org/api/v1/plan?fromPlace=${fromPlace}&toPlace=${toPlace}&mode=TRANSIT,WALK&maxWalkDistance=3500`;
+    let apiUrl = `https://api.transitous.org/api/v1/plan?fromPlace=${fromPlace}&toPlace=${toPlace}&maxWalkDistance=3500`;
+
+    if (onlyRegional) {
+      apiUrl += `&transitModes=REGIONAL_RAIL,BUS,TRAM,SUBWAY`;
+    } else {
+      apiUrl += `&mode=TRANSIT,WALK`;
+    }
 
     if (departureDateTimeIso) {
       // Ensure UTC/ISO string for Transitous
@@ -179,7 +195,8 @@ export async function fetchLiveTransitPlan(
         eva: destEva,
         cleanDbName: destCleanDbName || destStationName
       },
-      departureDateTimeIso
+      departureDateTimeIso,
+      onlyRegional
     );
 
     const result: LiveJourneyResult = {
@@ -207,7 +224,8 @@ export async function fetchLiveTransitPlan(
 export async function fetchBatchTourTimetables(
   tours: SkiTour[],
   origin: OriginStation,
-  departureDateTimeIso?: string
+  departureDateTimeIso?: string,
+  onlyRegional: boolean = true
 ): Promise<Record<string, LiveJourneyResult>> {
   // Group tours by unique destination station
   const uniqueDestinations = new Map<string, {
@@ -255,7 +273,8 @@ export async function fetchBatchTourTimetables(
           entry.stationName,
           entry.eva,
           entry.cleanDbName,
-          departureDateTimeIso
+          departureDateTimeIso,
+          onlyRegional
         );
 
         if (journey) {

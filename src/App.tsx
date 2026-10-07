@@ -51,6 +51,9 @@ export const App: React.FC = () => {
   // Departure date and time for timetable queries (defaults to upcoming Saturday 06:30)
   const [departureDateTime, setDepartureDateTime] = useState<string>(() => getDefaultDepartureDateTime());
 
+  // Regional transit filter (D-Ticket: no ICE/IC/Flixbus)
+  const [onlyRegional, setOnlyRegional] = useState<boolean>(true);
+
   // Active Origin Station
   const [originStation, setOriginStation] = useState<OriginStation>(() => {
     try {
@@ -69,6 +72,7 @@ export const App: React.FC = () => {
   // Live journey timetables mapped by tourId
   const [liveJourneysMap, setLiveJourneysMap] = useState<Record<string, LiveJourneyResult>>({});
   const [isTimetableLoading, setIsTimetableLoading] = useState(false);
+  const [isStaleTimetable, setIsStaleTimetable] = useState(false);
 
   // Load live avalanche bulletins on mount
   useEffect(() => {
@@ -79,9 +83,20 @@ export const App: React.FC = () => {
 
   const handleChangeOrigin = (newOrigin: OriginStation) => {
     setOriginStation(newOrigin);
+    setIsStaleTimetable(true);
     try {
       localStorage.setItem(ORIGIN_STORAGE_KEY, JSON.stringify(newOrigin));
     } catch {}
+  };
+
+  const handleChangeDepartureDateTime = (newTime: string) => {
+    setDepartureDateTime(newTime);
+    setIsStaleTimetable(true);
+  };
+
+  const handleChangeOnlyRegional = (regional: boolean) => {
+    setOnlyRegional(regional);
+    setIsStaleTimetable(true);
   };
 
   // Base combined tours without live timetable override
@@ -112,26 +127,24 @@ export const App: React.FC = () => {
     });
   }, [userMetaMap, customTours, originStation.name]);
 
-  // Batch fetch live timetables from Transitous
+  // Batch fetch live timetables from Transitous (triggered explicitly by button or once on mount)
   const handleFetchTimetables = useCallback(async () => {
     setIsTimetableLoading(true);
     try {
-      const results = await fetchBatchTourTimetables(baseTours, originStation, departureDateTime);
+      const results = await fetchBatchTourTimetables(baseTours, originStation, departureDateTime, onlyRegional);
       setLiveJourneysMap(results);
+      setIsStaleTimetable(false);
     } catch (err) {
       console.error('Error fetching batch timetables:', err);
     } finally {
       setIsTimetableLoading(false);
     }
-  }, [baseTours, originStation, departureDateTime]);
+  }, [baseTours, originStation, departureDateTime, onlyRegional]);
 
-  // Debounced auto-fetch whenever origin or departure time changes
+  // Initial fetch once on load
   useEffect(() => {
-    const timer = setTimeout(() => {
-      handleFetchTimetables();
-    }, 350);
-    return () => clearTimeout(timer);
-  }, [originStation.id, departureDateTime, baseTours.length]);
+    handleFetchTimetables();
+  }, []);
 
   // Merge live timetable data into each tour
   const allTours: SkiTour[] = useMemo(() => {
@@ -154,7 +167,7 @@ export const App: React.FC = () => {
     searchQuery: '',
     onlyDTicket: false,
     onlyPiste: false,
-    maxTransitDurationMinutes: 240,
+    maxTransitDurationMinutes: 300,
     maxAvalancheLevel: 4,
     minElevationGain: 0,
     maxElevationGain: 2000,
@@ -319,9 +332,12 @@ export const App: React.FC = () => {
         originStation={originStation}
         onChangeOrigin={handleChangeOrigin}
         departureDateTime={departureDateTime}
-        onChangeDepartureDateTime={setDepartureDateTime}
+        onChangeDepartureDateTime={handleChangeDepartureDateTime}
+        onlyRegional={onlyRegional}
+        onChangeOnlyRegional={handleChangeOnlyRegional}
         onRefreshTimetables={handleFetchTimetables}
         isTimetableLoading={isTimetableLoading}
+        isStaleTimetable={isStaleTimetable}
         onOpenAddTour={() => setIsAddTourModalOpen(true)}
         onExportJson={downloadUserMetaJson}
       />
@@ -440,6 +456,7 @@ export const App: React.FC = () => {
             avalancheRegions={avalancheRegions}
             originStation={originStation}
             departureDateTime={departureDateTime}
+            onlyRegional={onlyRegional}
             onUpdateTourMeta={handleUpdateTourMeta}
           />
         )}

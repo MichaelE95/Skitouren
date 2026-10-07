@@ -121,8 +121,8 @@ export const TourCard: React.FC<TourCardProps> = ({
                 ? tour.transit.liveJourney.legs
                     .filter(l => l.mode !== 'walk')
                     .map(l => l.lineName)
-                    .join(' → ') || tour.transit.lines.join(' → ')
-                : tour.transit.lines.join(' → ')}
+                    .join(' → ') || `Bahn nach ${tour.transit.cleanDbStationName}`
+                : `Ziel: ${tour.transit.cleanDbStationName}`}
             </span>
           </div>
           <div className="flex items-center space-x-1 text-slate-900 font-bold shrink-0">

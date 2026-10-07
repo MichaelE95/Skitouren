@@ -29,6 +29,7 @@ interface TourDetailModalProps {
   avalancheRegions: AvalancheRegion[];
   originStation: OriginStation;
   departureDateTime?: string;
+  onlyRegional?: boolean;
   onUpdateTourMeta: (tourId: string, rating: number | null, comment: string, skitourenguruUrl?: string) => void;
 }
 
@@ -38,12 +39,12 @@ export const TourDetailModal: React.FC<TourDetailModalProps> = ({
   avalancheRegions,
   originStation,
   departureDateTime,
+  onlyRegional = true,
   onUpdateTourMeta
 }) => {
   const [liveJourney, setLiveJourney] = useState<LiveJourneyResult | null>(null);
   const [isLoadingLive, setIsLoadingLive] = useState(false);
   const [liveError, setLiveError] = useState<string | null>(null);
-  const [showLivePanel, setShowLivePanel] = useState(false);
 
   // Editable comment & rating state
   const [currentRating, setCurrentRating] = useState<number | null>(null);
@@ -57,7 +58,6 @@ export const TourDetailModal: React.FC<TourDetailModalProps> = ({
       setCurrentComment(tour.curatedComment || '');
       setCurrentUrl(tour.links.skitourenguruUrl || '');
       setLiveJourney(tour.transit.liveJourney || null);
-      setShowLivePanel(Boolean(tour.transit.liveJourney));
     }
   }, [tour]);
 
@@ -83,7 +83,6 @@ export const TourDetailModal: React.FC<TourDetailModalProps> = ({
   const handleFetchLiveTimetable = async () => {
     setIsLoadingLive(true);
     setLiveError(null);
-    setShowLivePanel(true);
     try {
       const result = await fetchLiveTransitPlan(
         originStation,
@@ -91,7 +90,8 @@ export const TourDetailModal: React.FC<TourDetailModalProps> = ({
         tour.transit.destinationStation,
         tour.transit.destinationEva,
         tour.transit.cleanDbStationName,
-        departureDateTime
+        departureDateTime,
+        onlyRegional
       );
       if (!result) {
         setLiveError(`Keine Verbindung ab ${originStation.name} gefunden. Nutze den direkten DB Navigator Link unten.`);
@@ -113,7 +113,8 @@ export const TourDetailModal: React.FC<TourDetailModalProps> = ({
       eva: tour.transit.destinationEva,
       cleanDbName: tour.transit.cleanDbStationName
     },
-    departureDateTime
+    departureDateTime,
+    onlyRegional
   );
 
   return (
@@ -245,143 +246,137 @@ export const TourDetailModal: React.FC<TourDetailModalProps> = ({
         </div>
 
         {/* Public Transit Section (From Active Origin Station) */}
-        <div className="rounded-2xl p-4 border border-slate-200 bg-slate-50/60 space-y-3">
+        <div className="rounded-2xl p-4 border border-slate-200 bg-slate-50/70 space-y-3">
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-2">
               <Train className="w-4 h-4 text-alpine-600" />
               <h4 className="font-bold text-slate-900 text-sm">
-                Anreise ab {originStation.name}
+                Öffentliche Anreise
               </h4>
             </div>
             <span className="text-xs font-bold text-slate-700 flex items-center space-x-1">
               <Clock className="w-3.5 h-3.5 text-slate-400" />
-              <span>ca. {transitTimeStr}</span>
+              <span>ca. {transitTimeStr} gesamt</span>
             </span>
           </div>
 
-          {/* D-Ticket & Extra Cost Note */}
-          <div className="flex items-center justify-between p-2.5 bg-white rounded-xl border border-slate-200 text-xs">
-            <div className="flex items-center space-x-1.5">
-              <Euro className="w-3.5 h-3.5 text-slate-500" />
-              <span>Deutschland-Ticket:</span>
+          {/* Route Header (Origin -> Destination) */}
+          <div className="p-2.5 bg-white rounded-xl border border-slate-200 text-xs flex items-center justify-between">
+            <div className="flex items-center space-x-1.5 truncate">
+              <span className="font-bold text-slate-800">{originStation.name}</span>
+              <span className="text-slate-400">→</span>
+              <span className="font-bold text-alpine-700">{tour.transit.cleanDbStationName}</span>
             </div>
             {tour.transit.dTicketValidity === '100% gültig' ? (
-              <span className="font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
-                100% Gültig (0,00 €)
+              <span className="font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200 text-[10px] shrink-0">
+                100% D-Ticket
               </span>
             ) : (
-              <span className="font-bold text-amber-700 bg-amber-50 px-2 py-0.5 rounded border border-amber-200">
-                Zusatzkosten: ca. {tour.transit.extraCostEuro.toFixed(2)} €
+              <span className="font-bold text-amber-700 bg-amber-50 px-2 py-0.5 rounded border border-amber-200 text-[10px] shrink-0">
+                + ca. {tour.transit.extraCostEuro.toFixed(2)} €
               </span>
             )}
           </div>
 
-          {/* Walking connection from station */}
+          {/* Walking connection from destination station to trailhead */}
           {tour.transit.walkingDurationMinutes > 0 && (
-            <div className="p-2 bg-white rounded-xl border border-slate-200 flex items-center space-x-2 text-[11px] text-slate-700">
+            <div className="p-2 bg-white/80 rounded-xl border border-slate-200/90 flex items-center space-x-2 text-[11px] text-slate-700">
               <Footprints className="w-4 h-4 text-alpine-600 shrink-0" />
               <span>
-                Zielbahnhof: <strong>{tour.transit.cleanDbStationName}</strong> → ca. <strong>{tour.transit.walkingDurationMinutes} min Fußweg</strong> ({tour.transit.walkingDistanceMeters} m) zum Einstieg.
+                Ab <strong>{tour.transit.cleanDbStationName}</strong> ca. <strong>{tour.transit.walkingDurationMinutes} min Fußweg</strong> ({tour.transit.walkingDistanceMeters} m) zum Tour-Startpunkt.
               </span>
             </div>
           )}
 
-          {/* Step-by-step route itinerary */}
-          <div className="space-y-2 pt-1 border-t border-slate-200">
-            <div className="text-[11px] font-bold text-slate-500 uppercase">Fahrtverlauf:</div>
-            {tour.transit.steps.map((st, idx) => (
-              <div key={idx} className="flex items-start space-x-2 text-xs">
-                <span className="w-4 h-4 rounded-full bg-alpine-100 text-alpine-700 font-bold flex items-center justify-center text-[10px] shrink-0 mt-0.5">
-                  {idx + 1}
+          {/* Unified Dynamic Itinerary (100% from Live Data) */}
+          {liveJourney ? (
+            <div className="space-y-2 pt-1 border-t border-slate-200">
+              <div className="flex items-center justify-between text-xs">
+                <span className="font-bold text-slate-700">Echtzeit-Fahrtverlauf:</span>
+                <span className="text-[10px] text-sky-700 font-semibold bg-sky-50 px-1.5 py-0.5 rounded border border-sky-200">
+                  {liveJourney.transfers === 0 ? 'Direktverbindung' : `${liveJourney.transfers}x Umstieg`}
                 </span>
-                <div className="flex-1">
-                  <div className="font-semibold text-slate-800">
-                    {st.station} {st.line && <span className="text-alpine-600 font-bold">({st.line})</span>}
-                  </div>
-                  {st.note && <div className="text-[11px] text-slate-500">{st.note}</div>}
-                </div>
-                {st.timeHint && (
-                  <span className="text-[11px] font-mono text-slate-500">{st.timeHint}</span>
-                )}
               </div>
-            ))}
-          </div>
 
-          {/* Working DB Navigator Buttons */}
-          <div className="grid grid-cols-2 gap-2 pt-2">
+              {/* Main timing overview pill */}
+              <div className="p-2.5 bg-sky-50/70 rounded-xl border border-sky-200 text-xs flex items-center justify-between">
+                <div>
+                  <div className="font-bold text-sky-950 text-sm">
+                    {liveJourney.departureTime} → {liveJourney.arrivalTime} Uhr
+                  </div>
+                  <div className="text-[11px] text-sky-700 mt-0.5">
+                    Zugfahrt: {Math.floor(liveJourney.durationMinutes / 60)}h {liveJourney.durationMinutes % 60}m
+                  </div>
+                </div>
+                <span className="text-[11px] font-bold bg-sky-600 text-white px-2 py-1 rounded-lg shadow-2xs">
+                  {liveJourney.legs.filter(l => l.mode !== 'walk').map(l => l.lineName).join(' + ') || 'Regional'}
+                </span>
+              </div>
+
+              {/* Step-by-step real transit legs */}
+              <div className="space-y-1.5 pt-1">
+                {liveJourney.legs.map((leg, i) => (
+                  <div key={i} className="flex items-center justify-between p-2 rounded-xl bg-white border border-slate-200 text-xs">
+                    <div className="flex items-center space-x-2 truncate pr-2">
+                      <span className={`px-2 py-0.5 rounded-md text-[10px] font-bold shrink-0 ${
+                        leg.mode === 'walk' ? 'bg-slate-100 text-slate-600 border border-slate-200' : 'bg-alpine-100 text-alpine-800 border border-alpine-200'
+                      }`}>
+                        {leg.lineName}
+                      </span>
+                      <span className="text-slate-800 font-medium truncate">
+                        {leg.originName} → {leg.destinationName}
+                      </span>
+                    </div>
+                    <div className="text-right shrink-0 font-semibold text-slate-600 text-[11px]">
+                      {leg.departureTime} - {leg.arrivalTime}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          ) : (
+            <div className="p-3 bg-white rounded-xl border border-slate-200 text-center space-y-2">
+              <p className="text-xs text-slate-600">
+                Fahrplan für {originStation.name} → {tour.transit.cleanDbStationName} abrufen:
+              </p>
+              <button
+                onClick={handleFetchLiveTimetable}
+                disabled={isLoadingLive}
+                className="px-3 py-1.5 bg-alpine-600 hover:bg-alpine-700 text-white rounded-lg text-xs font-bold inline-flex items-center space-x-1.5 shadow-2xs transition-colors"
+              >
+                <RefreshCw className={`w-3.5 h-3.5 ${isLoadingLive ? 'animate-spin' : ''}`} />
+                <span>Verbindung jetzt abfragen</span>
+              </button>
+            </div>
+          )}
+
+          {liveError && (
+            <p className="text-xs text-amber-700 bg-amber-50 p-2 rounded-lg border border-amber-200">
+              {liveError}
+            </p>
+          )}
+
+          {/* Action Buttons: Refresh & DB Navigator */}
+          <div className="grid grid-cols-2 gap-2 pt-2 border-t border-slate-200">
             <button
               onClick={handleFetchLiveTimetable}
               disabled={isLoadingLive}
-              className="flex items-center justify-center space-x-1.5 py-2 px-3 bg-white hover:bg-slate-100 text-slate-800 rounded-xl border border-slate-300 font-semibold text-xs shadow-2xs transition-colors"
+              className="flex items-center justify-center space-x-1.5 py-2.5 px-3 bg-white hover:bg-slate-100 text-slate-800 rounded-xl border border-slate-300 font-semibold text-xs shadow-2xs transition-colors"
             >
               <RefreshCw className={`w-3.5 h-3.5 ${isLoadingLive ? 'animate-spin text-alpine-600' : 'text-slate-500'}`} />
-              <span>Live-Fahrplan</span>
+              <span>Neu laden</span>
             </button>
 
             <a
               href={workingDbUrl}
               target="_blank"
               rel="noopener noreferrer"
-              className="flex items-center justify-center space-x-1.5 py-2 px-3 bg-red-600 hover:bg-red-700 text-white rounded-xl font-bold text-xs shadow-2xs transition-colors"
+              className="flex items-center justify-center space-x-1.5 py-2.5 px-3 bg-red-600 hover:bg-red-700 text-white rounded-xl font-bold text-xs shadow-2xs transition-colors"
             >
               <ExternalLink className="w-3.5 h-3.5" />
               <span>In DB Navigator</span>
             </a>
           </div>
-
-          {/* Live DB Results Box */}
-          {showLivePanel && (
-            <div className="mt-3 p-3 bg-white rounded-xl border border-slate-200 space-y-2.5">
-              <div className="flex items-center justify-between border-b pb-1.5 text-xs font-bold text-slate-800">
-                <span>Echtzeit-Verbindung ab {originStation.name}:</span>
-                <span className="text-[10px] text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded font-semibold border border-emerald-200">
-                  Transitous / DB GTFS
-                </span>
-              </div>
-
-              {liveError && <p className="text-xs text-amber-700">{liveError}</p>}
-
-              {liveJourney && (
-                <div className="space-y-2">
-                  <div className="p-2.5 bg-sky-50/70 rounded-xl border border-sky-200 text-xs flex items-center justify-between">
-                    <div>
-                      <div className="font-bold text-sky-950 text-sm">
-                        {liveJourney.departureTime} → {liveJourney.arrivalTime}
-                      </div>
-                      <div className="text-[11px] text-sky-700 mt-0.5">
-                        Dauer: {Math.floor(liveJourney.durationMinutes / 60)}h {liveJourney.durationMinutes % 60}m | {liveJourney.transfers === 0 ? 'Direkt' : `${liveJourney.transfers}x Umstieg`}
-                      </div>
-                    </div>
-                    <span className="text-[11px] font-bold bg-sky-600 text-white px-2 py-1 rounded-lg shadow-2xs">
-                      {liveJourney.legs.filter(l => l.mode !== 'walk').map(l => l.lineName).join(' + ') || 'Regional'}
-                    </span>
-                  </div>
-
-                  {/* Individual Legs */}
-                  <div className="space-y-1.5 pt-1">
-                    <div className="text-[11px] font-semibold text-slate-500">Etappen:</div>
-                    {liveJourney.legs.map((leg, i) => (
-                      <div key={i} className="flex items-center justify-between p-1.5 rounded-lg bg-slate-50 border border-slate-200 text-[11px]">
-                        <div className="flex items-center space-x-1.5 truncate pr-2">
-                          <span className={`px-1.5 py-0.5 rounded text-[10px] font-bold shrink-0 ${
-                            leg.mode === 'walk' ? 'bg-slate-200 text-slate-700' : 'bg-alpine-100 text-alpine-800'
-                          }`}>
-                            {leg.lineName}
-                          </span>
-                          <span className="text-slate-700 truncate">
-                            {leg.originName} → {leg.destinationName}
-                          </span>
-                        </div>
-                        <div className="text-right shrink-0 font-medium text-slate-500 text-[10px]">
-                          {leg.departureTime} - {leg.arrivalTime} ({leg.durationMinutes}m)
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-            </div>
-          )}
         </div>
 
         {/* User Ratings & Custom Notes (Editable) */}
