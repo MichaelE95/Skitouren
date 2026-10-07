@@ -31,11 +31,11 @@ export const SKI_TOURS: SkiTour[] = [
     transit: {
       origin: 'Augsburg Haunstetter Str.',
       destinationStation: 'Riezlern Kanzelwandbahn',
-      cleanDbStationName: 'Oberstdorf',
-      destinationIbnr: '8004593',
-      destinationEva: '8004593',
-      walkingDistanceMeters: 50,
-      walkingDurationMinutes: 1,
+      cleanDbStationName: 'Riezlern Kanzelwandbahn',
+      destinationIbnr: '8100654',
+      destinationEva: '8100654',
+      walkingDistanceMeters: 0,
+      walkingDurationMinutes: 0,
       dTicketValidity: '100% gültig',
       extraCostEuro: 0
     },
@@ -73,11 +73,11 @@ export const SKI_TOURS: SkiTour[] = [
     transit: {
       origin: 'Augsburg Haunstetter Str.',
       destinationStation: 'Mittelberg Bödmen',
-      cleanDbStationName: 'Oberstdorf',
-      destinationIbnr: '8004593',
-      destinationEva: '8004593',
-      walkingDistanceMeters: 100,
-      walkingDurationMinutes: 2,
+      cleanDbStationName: 'Mittelberg Bödmen',
+      destinationIbnr: '8100652',
+      destinationEva: '8100652',
+      walkingDistanceMeters: 0,
+      walkingDurationMinutes: 0,
       dTicketValidity: '100% gültig',
       extraCostEuro: 0
     },
@@ -114,12 +114,12 @@ export const SKI_TOURS: SkiTour[] = [
     ],
     transit: {
       origin: 'Augsburg Haunstetter Str.',
-      destinationStation: 'Baad (Endstation Walserbus)',
-      cleanDbStationName: 'Oberstdorf',
-      destinationIbnr: '8004593',
-      destinationEva: '8004593',
-      walkingDistanceMeters: 50,
-      walkingDurationMinutes: 1,
+      destinationStation: 'Baad (Kleinwalsertal)',
+      cleanDbStationName: 'Baad',
+      destinationIbnr: '8100650',
+      destinationEva: '8100650',
+      walkingDistanceMeters: 0,
+      walkingDurationMinutes: 0,
       dTicketValidity: '100% gültig',
       extraCostEuro: 0
     },
@@ -155,12 +155,12 @@ export const SKI_TOURS: SkiTour[] = [
     ],
     transit: {
       origin: 'Augsburg Haunstetter Str.',
-      destinationStation: 'Baad',
-      cleanDbStationName: 'Oberstdorf',
-      destinationIbnr: '8004593',
-      destinationEva: '8004593',
-      walkingDistanceMeters: 50,
-      walkingDurationMinutes: 1,
+      destinationStation: 'Baad (Kleinwalsertal)',
+      cleanDbStationName: 'Baad',
+      destinationIbnr: '8100650',
+      destinationEva: '8100650',
+      walkingDistanceMeters: 0,
+      walkingDurationMinutes: 0,
       dTicketValidity: '100% gültig',
       extraCostEuro: 0
     },
@@ -196,12 +196,12 @@ export const SKI_TOURS: SkiTour[] = [
     ],
     transit: {
       origin: 'Augsburg Haunstetter Str.',
-      destinationStation: 'Baad',
-      cleanDbStationName: 'Oberstdorf',
-      destinationIbnr: '8004593',
-      destinationEva: '8004593',
-      walkingDistanceMeters: 50,
-      walkingDurationMinutes: 1,
+      destinationStation: 'Baad (Kleinwalsertal)',
+      cleanDbStationName: 'Baad',
+      destinationIbnr: '8100650',
+      destinationEva: '8100650',
+      walkingDistanceMeters: 0,
+      walkingDurationMinutes: 0,
       dTicketValidity: '100% gültig',
       extraCostEuro: 0
     },
@@ -237,12 +237,12 @@ export const SKI_TOURS: SkiTour[] = [
     ],
     transit: {
       origin: 'Augsburg Haunstetter Str.',
-      destinationStation: 'Oberstdorf Bahnhof',
+      destinationStation: 'Oberstdorf Bhf',
       cleanDbStationName: 'Oberstdorf',
       destinationIbnr: '8004593',
       destinationEva: '8004593',
-      walkingDistanceMeters: 700,
-      walkingDurationMinutes: 10,
+      walkingDistanceMeters: 0,
+      walkingDurationMinutes: 0,
       dTicketValidity: '100% gültig',
       extraCostEuro: 0
     },
@@ -282,12 +282,12 @@ export const SKI_TOURS: SkiTour[] = [
     ],
     transit: {
       origin: 'Augsburg Haunstetter Str.',
-      destinationStation: 'Bahnhof Pfronten-Steinach',
+      destinationStation: 'Pfronten-Steinach',
       cleanDbStationName: 'Pfronten-Steinach',
       destinationIbnr: '8004812',
       destinationEva: '8004812',
-      walkingDistanceMeters: 50,
-      walkingDurationMinutes: 1,
+      walkingDistanceMeters: 0,
+      walkingDurationMinutes: 0,
       dTicketValidity: '100% gültig',
       extraCostEuro: 0
     },
@@ -328,13 +328,13 @@ export const SKI_TOURS: SkiTour[] = [
     transit: {
       origin: 'Augsburg Haunstetter Str.',
       destinationStation: 'Tannheim Kreisverkehr',
-      cleanDbStationName: 'Pfronten-Steinach',
-      destinationIbnr: '8004812',
-      destinationEva: '8004812',
-      walkingDistanceMeters: 100,
-      walkingDurationMinutes: 2,
+      cleanDbStationName: 'Tannheim Kreisverkehr',
+      destinationIbnr: '8101452',
+      destinationEva: '8101452',
+      walkingDistanceMeters: 0,
+      walkingDurationMinutes: 0,
       dTicketValidity: 'Zusatzkosten nötig',
-      extraCostEuro: 4.20
+      extraCostEuro: 4
     },
     links: {
       
@@ -368,14 +368,14 @@ export const SKI_TOURS: SkiTour[] = [
     ],
     transit: {
       origin: 'Augsburg Haunstetter Str.',
-      destinationStation: 'Schattwald Wannenjochbahn',
-      cleanDbStationName: 'Pfronten-Steinach',
-      destinationIbnr: '8004812',
-      destinationEva: '8004812',
-      walkingDistanceMeters: 50,
-      walkingDurationMinutes: 1,
+      destinationStation: 'Schattwald',
+      cleanDbStationName: 'Schattwald',
+      destinationIbnr: '8101450',
+      destinationEva: '8101450',
+      walkingDistanceMeters: 0,
+      walkingDurationMinutes: 0,
       dTicketValidity: 'Zusatzkosten nötig',
-      extraCostEuro: 4.00
+      extraCostEuro: 4
     },
     links: {
       
@@ -409,14 +409,14 @@ export const SKI_TOURS: SkiTour[] = [
     ],
     transit: {
       origin: 'Augsburg Haunstetter Str.',
-      destinationStation: 'Schattwald Wannenjochbahn',
-      cleanDbStationName: 'Pfronten-Steinach',
-      destinationIbnr: '8004812',
-      destinationEva: '8004812',
-      walkingDistanceMeters: 50,
-      walkingDurationMinutes: 1,
+      destinationStation: 'Schattwald',
+      cleanDbStationName: 'Schattwald',
+      destinationIbnr: '8101450',
+      destinationEva: '8101450',
+      walkingDistanceMeters: 0,
+      walkingDurationMinutes: 0,
       dTicketValidity: 'Zusatzkosten nötig',
-      extraCostEuro: 4.00
+      extraCostEuro: 4
     },
     links: {
       
@@ -450,14 +450,14 @@ export const SKI_TOURS: SkiTour[] = [
     ],
     transit: {
       origin: 'Augsburg Haunstetter Str.',
-      destinationStation: 'Nesselwängle Haller',
-      cleanDbStationName: 'Pfronten-Steinach',
-      destinationIbnr: '8004812',
-      destinationEva: '8004812',
-      walkingDistanceMeters: 80,
-      walkingDurationMinutes: 1,
+      destinationStation: 'Nesselwängle Abzw Krinnenalpe',
+      cleanDbStationName: 'Nesselwängle',
+      destinationIbnr: '8101458',
+      destinationEva: '8101458',
+      walkingDistanceMeters: 3668,
+      walkingDurationMinutes: 52,
       dTicketValidity: 'Zusatzkosten nötig',
-      extraCostEuro: 4.50
+      extraCostEuro: 4
     },
     links: {
       
@@ -491,14 +491,14 @@ export const SKI_TOURS: SkiTour[] = [
     ],
     transit: {
       origin: 'Augsburg Haunstetter Str.',
-      destinationStation: 'Nesselwängle Rauth',
-      cleanDbStationName: 'Pfronten-Steinach',
-      destinationIbnr: '8004812',
-      destinationEva: '8004812',
-      walkingDistanceMeters: 100,
-      walkingDurationMinutes: 2,
-      dTicketValidity: 'Zusatzkosten nötig',
-      extraCostEuro: 4.50
+      destinationStation: 'Reutte in Tirol',
+      cleanDbStationName: 'Reutte in Tirol',
+      destinationIbnr: '8100155',
+      destinationEva: '8100155',
+      walkingDistanceMeters: 10004,
+      walkingDurationMinutes: 143,
+      dTicketValidity: '100% gültig',
+      extraCostEuro: 0
     },
     links: {
       
@@ -536,12 +536,12 @@ export const SKI_TOURS: SkiTour[] = [
     ],
     transit: {
       origin: 'Augsburg Haunstetter Str.',
-      destinationStation: 'Schwangau Tegelbergbahn',
+      destinationStation: 'Füssen Bhf',
       cleanDbStationName: 'Füssen',
       destinationIbnr: '8000111',
       destinationEva: '8000111',
-      walkingDistanceMeters: 50,
-      walkingDurationMinutes: 1,
+      walkingDistanceMeters: 4254,
+      walkingDurationMinutes: 61,
       dTicketValidity: '100% gültig',
       extraCostEuro: 0
     },
@@ -586,8 +586,8 @@ export const SKI_TOURS: SkiTour[] = [
       cleanDbStationName: 'Lermoos',
       destinationIbnr: '8100085',
       destinationEva: '8100085',
-      walkingDistanceMeters: 300,
-      walkingDurationMinutes: 4,
+      walkingDistanceMeters: 0,
+      walkingDurationMinutes: 0,
       dTicketValidity: '100% gültig',
       extraCostEuro: 0
     },
@@ -628,8 +628,8 @@ export const SKI_TOURS: SkiTour[] = [
       cleanDbStationName: 'Lähn',
       destinationIbnr: '8100108',
       destinationEva: '8100108',
-      walkingDistanceMeters: 50,
-      walkingDurationMinutes: 1,
+      walkingDistanceMeters: 0,
+      walkingDurationMinutes: 0,
       dTicketValidity: '100% gültig',
       extraCostEuro: 0
     },
@@ -669,8 +669,8 @@ export const SKI_TOURS: SkiTour[] = [
       cleanDbStationName: 'Bichlbach-Berwang',
       destinationIbnr: '8100146',
       destinationEva: '8100146',
-      walkingDistanceMeters: 150,
-      walkingDurationMinutes: 2,
+      walkingDistanceMeters: 3270,
+      walkingDurationMinutes: 47,
       dTicketValidity: '100% gültig',
       extraCostEuro: 0
     },
@@ -706,12 +706,12 @@ export const SKI_TOURS: SkiTour[] = [
     ],
     transit: {
       origin: 'Augsburg Haunstetter Str.',
-      destinationStation: 'Bichlbach-Berwang / Bichlbächle',
-      cleanDbStationName: 'Bichlbach-Berwang',
-      destinationIbnr: '8100146',
-      destinationEva: '8100146',
-      walkingDistanceMeters: 100,
-      walkingDurationMinutes: 2,
+      destinationStation: 'Bahnhof Lähn',
+      cleanDbStationName: 'Lähn',
+      destinationIbnr: '8100108',
+      destinationEva: '8100108',
+      walkingDistanceMeters: 5070,
+      walkingDurationMinutes: 72,
       dTicketValidity: '100% gültig',
       extraCostEuro: 0
     },
@@ -751,8 +751,8 @@ export const SKI_TOURS: SkiTour[] = [
       cleanDbStationName: 'Ehrwald Zugspitzbahn',
       destinationIbnr: '8100148',
       destinationEva: '8100148',
-      walkingDistanceMeters: 50,
-      walkingDurationMinutes: 1,
+      walkingDistanceMeters: 1412,
+      walkingDurationMinutes: 20,
       dTicketValidity: '100% gültig',
       extraCostEuro: 0
     },
@@ -792,12 +792,12 @@ export const SKI_TOURS: SkiTour[] = [
     ],
     transit: {
       origin: 'Augsburg Haunstetter Str.',
-      destinationStation: 'Garmisch-Partenkirchen / Kreuzeckbahn',
+      destinationStation: 'Garmisch-Partenkirchen',
       cleanDbStationName: 'Garmisch-Partenkirchen',
       destinationIbnr: '8002220',
       destinationEva: '8002220',
-      walkingDistanceMeters: 50,
-      walkingDurationMinutes: 1,
+      walkingDistanceMeters: 3421,
+      walkingDurationMinutes: 49,
       dTicketValidity: '100% gültig',
       extraCostEuro: 0
     },
@@ -834,12 +834,12 @@ export const SKI_TOURS: SkiTour[] = [
     ],
     transit: {
       origin: 'Augsburg Haunstetter Str.',
-      destinationStation: 'Bahnhof Mittenwald',
+      destinationStation: 'Mittenwald Bhf',
       cleanDbStationName: 'Mittenwald',
       destinationIbnr: '8000257',
       destinationEva: '8000257',
-      walkingDistanceMeters: 100,
-      walkingDurationMinutes: 2,
+      walkingDistanceMeters: 0,
+      walkingDurationMinutes: 0,
       dTicketValidity: '100% gültig',
       extraCostEuro: 0
     },
@@ -881,10 +881,10 @@ export const SKI_TOURS: SkiTour[] = [
       origin: 'Augsburg Haunstetter Str.',
       destinationStation: 'Bahnhof Scharnitz',
       cleanDbStationName: 'Scharnitz',
-      destinationIbnr: '8100063',
-      destinationEva: '8100063',
-      walkingDistanceMeters: 50,
-      walkingDurationMinutes: 1,
+      destinationIbnr: '8100088',
+      destinationEva: '8100088',
+      walkingDistanceMeters: 0,
+      walkingDurationMinutes: 0,
       dTicketValidity: '100% gültig',
       extraCostEuro: 0
     },
@@ -927,10 +927,10 @@ export const SKI_TOURS: SkiTour[] = [
       cleanDbStationName: 'Seefeld in Tirol',
       destinationIbnr: '8100062',
       destinationEva: '8100062',
-      walkingDistanceMeters: 400,
-      walkingDurationMinutes: 5,
+      walkingDistanceMeters: 0,
+      walkingDurationMinutes: 0,
       dTicketValidity: 'Zusatzkosten nötig',
-      extraCostEuro: 3.80
+      extraCostEuro: 3.8
     },
     links: {
       
@@ -969,10 +969,10 @@ export const SKI_TOURS: SkiTour[] = [
       cleanDbStationName: 'Seefeld in Tirol',
       destinationIbnr: '8100062',
       destinationEva: '8100062',
-      walkingDistanceMeters: 400,
-      walkingDurationMinutes: 5,
+      walkingDistanceMeters: 0,
+      walkingDurationMinutes: 0,
       dTicketValidity: 'Zusatzkosten nötig',
-      extraCostEuro: 3.80
+      extraCostEuro: 3.8
     },
     links: {
       
@@ -1006,14 +1006,14 @@ export const SKI_TOURS: SkiTour[] = [
     ],
     transit: {
       origin: 'Augsburg Haunstetter Str.',
-      destinationStation: 'Leutasch Buchen (Bus 430)',
-      cleanDbStationName: 'Seefeld in Tirol',
-      destinationIbnr: '8100062',
-      destinationEva: '8100062',
-      walkingDistanceMeters: 100,
-      walkingDurationMinutes: 2,
+      destinationStation: 'Leutasch Buchen',
+      cleanDbStationName: 'Leutasch Buchen',
+      destinationIbnr: '8100220',
+      destinationEva: '8100220',
+      walkingDistanceMeters: 3268,
+      walkingDurationMinutes: 47,
       dTicketValidity: 'Zusatzkosten nötig',
-      extraCostEuro: 5.50
+      extraCostEuro: 3.8
     },
     links: {
       
@@ -1054,12 +1054,12 @@ export const SKI_TOURS: SkiTour[] = [
     ],
     transit: {
       origin: 'Augsburg Haunstetter Str.',
-      destinationStation: 'Baad',
-      cleanDbStationName: 'Oberstdorf',
-      destinationIbnr: '8004593',
-      destinationEva: '8004593',
-      walkingDistanceMeters: 50,
-      walkingDurationMinutes: 1,
+      destinationStation: 'Baad (Kleinwalsertal)',
+      cleanDbStationName: 'Baad',
+      destinationIbnr: '8100650',
+      destinationEva: '8100650',
+      walkingDistanceMeters: 0,
+      walkingDurationMinutes: 0,
       dTicketValidity: '100% gültig',
       extraCostEuro: 0
     },

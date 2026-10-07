@@ -225,9 +225,10 @@ export async function fetchBatchTourTimetables(
   tours: SkiTour[],
   origin: OriginStation,
   departureDateTimeIso?: string,
-  onlyRegional: boolean = true
+  onlyRegional: boolean = true,
+  onProgress?: (tourId: string, journey: LiveJourneyResult) => void
 ): Promise<Record<string, LiveJourneyResult>> {
-  // Group tours by unique destination station
+  // Group tours by unique destination station coordinates/cleanDbName
   const uniqueDestinations = new Map<string, {
     stationName: string;
     coords: [number, number];
@@ -238,12 +239,12 @@ export async function fetchBatchTourTimetables(
 
   for (const tour of tours) {
     const stName = tour.transit.cleanDbStationName || tour.transit.destinationStation;
-    const matchedStation = KEY_STATIONS.find(k => k.cleanDbName === stName || k.name.includes(stName));
-    const coords = matchedStation?.coordinates || tour.coordinates.trailhead;
-    const eva = matchedStation?.eva || tour.transit.destinationEva || '8000000';
-    const cleanDbName = matchedStation?.cleanDbName || stName;
+    const coords = tour.coordinates.trailhead;
+    const eva = tour.transit.destinationEva || '8000000';
+    const cleanDbName = tour.transit.cleanDbStationName || stName;
 
-    const key = `${coords[0].toFixed(3)},${coords[1].toFixed(3)}`;
+    // Use cleanDbName + rounded coords as deduplication key
+    const key = `${cleanDbName.toLowerCase()}_${coords[0].toFixed(2)},${coords[1].toFixed(2)}`;
     if (!uniqueDestinations.has(key)) {
       uniqueDestinations.set(key, {
         stationName: stName,
@@ -258,29 +259,34 @@ export async function fetchBatchTourTimetables(
   }
 
   const results: Record<string, LiveJourneyResult> = {};
-
-  // Fetch unique destinations concurrently (batch size limited to 4)
   const destEntries = Array.from(uniqueDestinations.values());
-  const batchSize = 4;
+  const batchSize = 6; // Fast parallel queries
 
   for (let i = 0; i < destEntries.length; i += batchSize) {
     const batch = destEntries.slice(i, i + batchSize);
     await Promise.all(
       batch.map(async (entry) => {
-        const journey = await fetchLiveTransitPlan(
-          origin,
-          entry.coords,
-          entry.stationName,
-          entry.eva,
-          entry.cleanDbName,
-          departureDateTimeIso,
-          onlyRegional
-        );
+        try {
+          const journey = await fetchLiveTransitPlan(
+            origin,
+            entry.coords,
+            entry.stationName,
+            entry.eva,
+            entry.cleanDbName,
+            departureDateTimeIso,
+            onlyRegional
+          );
 
-        if (journey) {
-          for (const tourId of entry.tourIds) {
-            results[tourId] = journey;
+          if (journey) {
+            for (const tourId of entry.tourIds) {
+              results[tourId] = journey;
+              if (onProgress) {
+                onProgress(tourId, journey);
+              }
+            }
           }
+        } catch (err) {
+          console.warn(`Could not fetch transit to ${entry.cleanDbName}:`, err);
         }
       })
     );

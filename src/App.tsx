@@ -13,7 +13,7 @@ import { FilterSidebar } from './components/Filters/FilterSidebar';
 import { TourCard } from './components/Tours/TourCard';
 import { TourDetailModal } from './components/Tours/TourDetailModal';
 import { AddTourModal } from './components/Tours/AddTourModal';
-import { Mountain, Loader2 } from 'lucide-react';
+import { Mountain, Loader2, SlidersHorizontal, List } from 'lucide-react';
 
 const ORIGIN_STORAGE_KEY = 'skitour_active_origin_v2';
 
@@ -43,7 +43,7 @@ function getDefaultDepartureDateTime(): string {
 export const App: React.FC = () => {
   const [selectedTour, setSelectedTour] = useState<SkiTour | null>(null);
   const [avalancheRegions, setAvalancheRegions] = useState<AvalancheRegion[]>(FALLBACK_AVALANCHE_REGIONS);
-  const [isFilterDrawerOpen, setIsFilterDrawerOpen] = useState(false);
+  const [leftPanelView, setLeftPanelView] = useState<'list' | 'filters'>('list');
   const [isAddTourModalOpen, setIsAddTourModalOpen] = useState(false);
   const [mobileView, setMobileView] = useState<'map' | 'list'>('map');
 
@@ -127,11 +127,20 @@ export const App: React.FC = () => {
     });
   }, [userMetaMap, customTours, deletedTourIds, originStation.name]);
 
-  // Batch fetch live timetables from Transitous (triggered on mount and on explicit refresh)
+  // Batch fetch live timetables from Transitous with progressive live streaming
   const handleFetchTimetables = useCallback(async () => {
     setIsTimetableLoading(true);
     try {
-      const results = await fetchBatchTourTimetables(baseTours, originStation, departureDateTime, onlyRegional);
+      const results = await fetchBatchTourTimetables(
+        baseTours,
+        originStation,
+        departureDateTime,
+        onlyRegional,
+        (tourId, journey) => {
+          // Progressively update state as each station finishes
+          setLiveJourneysMap(prev => ({ ...prev, [tourId]: journey }));
+        }
+      );
       setLiveJourneysMap(results);
       setIsStaleTimetable(false);
     } catch (err) {
@@ -286,9 +295,6 @@ export const App: React.FC = () => {
 
   const handleSelectTour = (tour: SkiTour) => {
     setSelectedTour(tour);
-    if (window.innerWidth < 768) {
-      setMobileView('map');
-    }
   };
 
   const handleRatingChange = (tourId: string, newRating: number | null) => {
@@ -325,13 +331,16 @@ export const App: React.FC = () => {
 
   return (
     <div className="flex flex-col h-screen w-screen overflow-hidden bg-slate-100 font-sans antialiased text-slate-800">
-      {/* Top Navigation */}
+      {/* Top Navigation Bar */}
       <Navbar
         toursCount={filteredTours.length}
         mobileView={mobileView}
         setMobileView={setMobileView}
-        isFilterDrawerOpen={isFilterDrawerOpen}
-        toggleFilterDrawer={() => setIsFilterDrawerOpen(!isFilterDrawerOpen)}
+        isFilterDrawerOpen={leftPanelView === 'filters'}
+        toggleFilterDrawer={() => {
+          setSelectedTour(null);
+          setLeftPanelView(prev => prev === 'filters' ? 'list' : 'filters');
+        }}
         onOpenAddTour={() => setIsAddTourModalOpen(true)}
         originStation={originStation}
         onChangeOrigin={handleChangeOrigin}
@@ -345,111 +354,139 @@ export const App: React.FC = () => {
         onExportJson={downloadUserMetaJson}
       />
 
-      {/* Main Container: Sidebar Filters + Tour List + Map */}
+      {/* Main Screen: Single Left Sidebar Panel + Wide 2D Map */}
       <div className="flex-1 flex overflow-hidden relative">
-        {/* Filter Sidebar (Desktop) */}
-        <div className="hidden lg:block w-72 h-full shrink-0 border-r border-slate-200/80 bg-white z-20">
-          <FilterSidebar
-            filters={filters}
-            onFilterChange={setFilters}
-            availableRanges={availableRanges}
-            totalToursCount={allTours.length}
-            filteredToursCount={filteredTours.length}
-            originStation={originStation}
-          />
-        </div>
-
-        {/* Filter Drawer (Mobile & Tablet) */}
-        {isFilterDrawerOpen && (
-          <div className="lg:hidden fixed inset-0 z-40 flex">
-            <div
-              className="fixed inset-0 bg-slate-900/40 backdrop-blur-xs"
-              onClick={() => setIsFilterDrawerOpen(false)}
-            />
-            <div className="relative w-80 max-w-full h-full bg-white shadow-2xl z-50 flex flex-col">
-              <FilterSidebar
-                filters={filters}
-                onFilterChange={setFilters}
-                availableRanges={availableRanges}
-                totalToursCount={allTours.length}
-                filteredToursCount={filteredTours.length}
-                originStation={originStation}
-                onCloseMobile={() => setIsFilterDrawerOpen(false)}
-              />
-            </div>
-          </div>
-        )}
-
-        {/* Left Area: Tour Cards List */}
+        {/* Single Left Panel: Displays Tour Details OR Filters OR Tour List */}
         <div
-          className={`w-full md:w-96 lg:w-[410px] h-full shrink-0 flex flex-col bg-white border-r border-slate-200/80 z-10 ${
+          className={`w-full md:w-96 lg:w-[420px] h-full shrink-0 flex flex-col bg-white border-r border-slate-200/80 z-20 shadow-md ${
             mobileView === 'list' ? 'block' : 'hidden md:flex'
           }`}
         >
-          {isTimetableLoading && (
-            <div className="bg-sky-50 border-b border-sky-100 px-3 py-1.5 flex items-center justify-between text-xs text-sky-800">
-              <span className="flex items-center space-x-1.5 font-medium">
-                <Loader2 className="w-3.5 h-3.5 animate-spin text-sky-600" />
-                <span>Echtzeit-Fahrpläne werden geladen...</span>
-              </span>
-            </div>
-          )}
-
-          <div className="flex-1 overflow-y-auto p-3 space-y-3 bg-slate-50/50">
-            {/* Tour List Header */}
-            <div className="flex items-center justify-between px-1 text-xs text-slate-500 font-semibold">
-              <span>{filteredTours.length} Touren gefunden</span>
-              <span className="text-[11px] text-slate-400">
-                {filters.ratingFilter === 'unrated' ? 'Nur unbewertete' : ''}
-              </span>
-            </div>
-
-            {/* Tour Cards */}
-            {filteredTours.length === 0 ? (
-              <div className="text-center py-12 px-4 space-y-3">
-                <div className="w-12 h-12 rounded-full bg-slate-200 text-slate-500 flex items-center justify-center mx-auto">
-                  <Mountain className="w-6 h-6" />
-                </div>
-                <h4 className="font-bold text-slate-800 text-sm">Keine passenden Touren gefunden</h4>
-                <p className="text-xs text-slate-500 max-w-xs mx-auto">
-                  Passe deine Filterkriterien an oder importiere eine neue Tour über den Button oben!
-                </p>
+          {selectedTour ? (
+            /* 1. Tour Detail Sidebar View (Keeps Map completely visible) */
+            <TourDetailModal
+              tour={selectedTour}
+              onClose={() => setSelectedTour(null)}
+              avalancheRegions={avalancheRegions}
+              originStation={originStation}
+              departureDateTime={departureDateTime}
+              onlyRegional={onlyRegional}
+              onUpdateTourMeta={handleUpdateTourMeta}
+              onDeleteTour={handleDeleteTour}
+            />
+          ) : leftPanelView === 'filters' ? (
+            /* 2. Filter Sidebar View */
+            <div className="flex flex-col h-full">
+              <div className="p-3 bg-slate-50 border-b border-slate-200 flex items-center justify-between">
+                <span className="font-bold text-xs text-slate-700 flex items-center space-x-1.5">
+                  <SlidersHorizontal className="w-4 h-4 text-alpine-600" />
+                  <span>Suchkriterien & Filter</span>
+                </span>
                 <button
-                  onClick={() => setFilters({
-                    searchQuery: '',
-                    onlyDTicket: false,
-                    onlyPiste: false,
-                    maxTransitDurationMinutes: 300,
-                    maxAvalancheLevel: 4,
-                    minElevationGain: 0,
-                    maxElevationGain: 2000,
-                    selectedDifficulties: [],
-                    selectedRanges: [],
-                    tourType: 'all',
-                    ratingFilter: 'all',
-                    sortBy: 'transitTime'
-                  })}
-                  className="px-4 py-2 bg-alpine-600 text-white rounded-xl text-xs font-bold shadow-xs hover:bg-alpine-700 transition-colors"
+                  onClick={() => setLeftPanelView('list')}
+                  className="px-2.5 py-1 bg-white hover:bg-slate-100 text-slate-700 rounded-lg text-xs font-semibold border border-slate-300 transition-colors shadow-2xs"
                 >
-                  Filter zurücksetzen
+                  Zu den Touren ({filteredTours.length})
                 </button>
               </div>
-            ) : (
-              filteredTours.map(tour => (
-                <TourCard
-                  key={tour.id}
-                  tour={tour}
-                  isSelected={selectedTour?.id === tour.id}
-                  onSelect={handleSelectTour}
-                  avalancheRegions={avalancheRegions}
-                  onRatingChange={handleRatingChange}
+              <div className="flex-1 overflow-y-auto">
+                <FilterSidebar
+                  filters={filters}
+                  onFilterChange={setFilters}
+                  availableRanges={availableRanges}
+                  totalToursCount={allTours.length}
+                  filteredToursCount={filteredTours.length}
+                  originStation={originStation}
+                  onCloseMobile={() => setLeftPanelView('list')}
                 />
-              ))
-            )}
-          </div>
+              </div>
+            </div>
+          ) : (
+            /* 3. Tour Cards List View with Fast Tab Switch */
+            <div className="flex flex-col h-full">
+              {/* Tab Switcher: Touren vs Filter */}
+              <div className="p-2.5 bg-slate-50 border-b border-slate-200 flex items-center justify-between shrink-0">
+                <div className="flex bg-slate-200/80 p-0.5 rounded-xl space-x-0.5 text-xs font-bold">
+                  <button
+                    onClick={() => setLeftPanelView('list')}
+                    className="px-3 py-1 bg-white text-slate-900 rounded-lg shadow-2xs flex items-center space-x-1.5"
+                  >
+                    <List className="w-3.5 h-3.5 text-alpine-600" />
+                    <span>Touren ({filteredTours.length})</span>
+                  </button>
+                  <button
+                    onClick={() => setLeftPanelView('filters')}
+                    className="px-3 py-1 text-slate-600 hover:text-slate-900 rounded-lg transition-colors flex items-center space-x-1.5"
+                  >
+                    <SlidersHorizontal className="w-3.5 h-3.5" />
+                    <span>Filter</span>
+                  </button>
+                </div>
+
+                <div className="text-[11px] font-semibold text-slate-500">
+                  {filters.ratingFilter === 'unrated' ? 'Nur unbewertete' : ''}
+                </div>
+              </div>
+
+              {/* Timetable Loading Progress Bar */}
+              {isTimetableLoading && (
+                <div className="bg-sky-50 border-b border-sky-100 px-3 py-1.5 flex items-center justify-between text-xs text-sky-800 shrink-0">
+                  <span className="flex items-center space-x-1.5 font-medium">
+                    <Loader2 className="w-3.5 h-3.5 animate-spin text-sky-600" />
+                    <span>Echtzeit-Fahrpläne werden geladen...</span>
+                  </span>
+                </div>
+              )}
+
+              {/* Scrollable Tour Cards */}
+              <div className="flex-1 overflow-y-auto p-3 space-y-3 bg-slate-50/50">
+                {filteredTours.length === 0 ? (
+                  <div className="text-center py-12 px-4 space-y-3">
+                    <div className="w-12 h-12 rounded-full bg-slate-200 text-slate-500 flex items-center justify-center mx-auto">
+                      <Mountain className="w-6 h-6" />
+                    </div>
+                    <h4 className="font-bold text-slate-800 text-sm">Keine passenden Touren gefunden</h4>
+                    <p className="text-xs text-slate-500 max-w-xs mx-auto">
+                      Passe deine Filter an oder setze sie zurück.
+                    </p>
+                    <button
+                      onClick={() => setFilters({
+                        searchQuery: '',
+                        onlyDTicket: false,
+                        onlyPiste: false,
+                        maxTransitDurationMinutes: 300,
+                        maxAvalancheLevel: 4,
+                        minElevationGain: 0,
+                        maxElevationGain: 2000,
+                        selectedDifficulties: [],
+                        selectedRanges: [],
+                        tourType: 'all',
+                        ratingFilter: 'all',
+                        sortBy: 'transitTime'
+                      })}
+                      className="px-4 py-2 bg-alpine-600 text-white rounded-xl text-xs font-bold shadow-xs hover:bg-alpine-700 transition-colors"
+                    >
+                      Filter zurücksetzen
+                    </button>
+                  </div>
+                ) : (
+                  filteredTours.map(tour => (
+                    <TourCard
+                      key={tour.id}
+                      tour={tour}
+                      isSelected={false}
+                      onSelect={handleSelectTour}
+                      avalancheRegions={avalancheRegions}
+                      onRatingChange={handleRatingChange}
+                    />
+                  ))
+                )}
+              </div>
+            </div>
+          )}
         </div>
 
-        {/* Right Area: Interactive MapLibre GL Alpine Map (2D) */}
+        {/* Right Area: Spacious Interactive MapLibre GL Alpine Map (2D) */}
         <div
           className={`flex-1 h-full relative ${
             mobileView === 'map' ? 'block' : 'hidden md:block'
@@ -463,20 +500,6 @@ export const App: React.FC = () => {
             originStation={originStation}
           />
         </div>
-
-        {/* Selected Tour Detail Drawer */}
-        {selectedTour && (
-          <TourDetailModal
-            tour={selectedTour}
-            onClose={() => setSelectedTour(null)}
-            avalancheRegions={avalancheRegions}
-            originStation={originStation}
-            departureDateTime={departureDateTime}
-            onlyRegional={onlyRegional}
-            onUpdateTourMeta={handleUpdateTourMeta}
-            onDeleteTour={handleDeleteTour}
-          />
-        )}
 
         {/* Add Tour Modal */}
         <AddTourModal

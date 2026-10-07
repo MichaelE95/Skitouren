@@ -375,6 +375,26 @@ export const UNIFIED_STATION_CATALOG: MasterStation[] = [
     coordinates: [11.8880, 47.6620],
     type: 'bus',
     dTicketNotice: 'RVO Bus 9562 ab Fischhausen-Neuhaus'
+  },
+  {
+    id: 'schattwald',
+    name: 'Schattwald',
+    ibnr: '8101450',
+    eva: '8101450',
+    cleanDbName: 'Schattwald',
+    coordinates: [10.4533, 47.5140],
+    type: 'bus',
+    dTicketNotice: 'VVT Bus 120'
+  },
+  {
+    id: 'leutasch-buchen',
+    name: 'Leutasch Buchen',
+    ibnr: '8100220',
+    eva: '8100220',
+    cleanDbName: 'Leutasch Buchen',
+    coordinates: [11.1200, 47.3600],
+    type: 'bus',
+    dTicketNotice: 'VVT Bus ab Seefeld'
   }
 ];
 
