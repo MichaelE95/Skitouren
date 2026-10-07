@@ -136,6 +136,7 @@ export const AddTourModal: React.FC<AddTourModalProps> = ({
         destinationStation: transit.station.name,
         cleanDbStationName: transit.cleanDbStationName,
         destinationIbnr: transit.station.ibnr || '8004593',
+        destinationEva: transit.station.eva || transit.station.ibnr || '8100088',
         lines: transit.suggestedLines,
         transfers: 2,
         approxTotalMinutes: transit.approxTotalMinutes,
@@ -428,3 +429,4 @@ export const AddTourModal: React.FC<AddTourModalProps> = ({
     </div>
   );
 };
+

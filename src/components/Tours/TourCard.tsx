@@ -116,13 +116,35 @@ export const TourCard: React.FC<TourCardProps> = ({
         <div className="flex items-center justify-between text-xs">
           <div className="flex items-center space-x-1.5 text-slate-700 font-medium truncate">
             <Train className="w-3.5 h-3.5 text-alpine-600 shrink-0" />
-            <span className="truncate">{tour.transit.lines.join(' → ')}</span>
+            <span className="truncate font-semibold">
+              {tour.transit.liveJourney
+                ? tour.transit.liveJourney.legs
+                    .filter(l => l.mode !== 'walk')
+                    .map(l => l.lineName)
+                    .join(' → ') || tour.transit.lines.join(' → ')
+                : tour.transit.lines.join(' → ')}
+            </span>
           </div>
           <div className="flex items-center space-x-1 text-slate-900 font-bold shrink-0">
             <Clock className="w-3 h-3 text-slate-500" />
-            <span>{transitTimeStr}</span>
+            <span>
+              {tour.transit.liveJourney
+                ? `${Math.floor((tour.transit.liveJourney.durationMinutes + tour.transit.walkingDurationMinutes) / 60)}h ${(tour.transit.liveJourney.durationMinutes + tour.transit.walkingDurationMinutes) % 60}m`
+                : transitTimeStr}
+            </span>
           </div>
         </div>
+
+        {/* Live departure time badge */}
+        {tour.transit.liveJourney && (
+          <div className="flex items-center justify-between text-[11px] text-sky-800 bg-sky-50 px-2 py-0.5 rounded-lg border border-sky-200">
+            <span className="font-semibold">Abfahrt: <strong>{tour.transit.liveJourney.departureTime}</strong></span>
+            <span>Ankunft: <strong>{tour.transit.liveJourney.arrivalTime}</strong></span>
+            <span className="text-[10px] text-sky-600 font-medium">
+              {tour.transit.liveJourney.transfers === 0 ? 'Direktzug' : `${tour.transit.liveJourney.transfers}x Umstieg`}
+            </span>
+          </div>
+        )}
 
         {/* Footprints walking connection */}
         {tour.transit.walkingDurationMinutes > 0 && (

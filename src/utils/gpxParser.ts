@@ -126,3 +126,4 @@ function haversineDistance(lat1: number, lon1: number, lat2: number, lon2: numbe
 function toRad(degrees: number): number {
   return degrees * (Math.PI / 180);
 }
+

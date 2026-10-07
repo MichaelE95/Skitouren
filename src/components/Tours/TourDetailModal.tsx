@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { SkiTour, AvalancheRegion, OriginStation } from '../../types';
+import { SkiTour, AvalancheRegion, OriginStation, LiveJourneyResult } from '../../types';
 import { getTourAvalancheRisk } from '../../services/avalancheService';
-import { fetchLiveJourneys, buildDbNavigatorUrl, LiveJourneyResult } from '../../services/transitService';
+import { fetchLiveTransitPlan, buildWorkingDbUrl } from '../../services/transitService';
 import { downloadTourGpx } from '../../utils/gpxGenerator';
 import { EAWS_COLORS } from '../../data/avalancheData';
 import {
@@ -28,6 +28,7 @@ interface TourDetailModalProps {
   onClose: () => void;
   avalancheRegions: AvalancheRegion[];
   originStation: OriginStation;
+  departureDateTime?: string;
   onUpdateTourMeta: (tourId: string, rating: number | null, comment: string, skitourenguruUrl?: string) => void;
 }
 
@@ -36,9 +37,10 @@ export const TourDetailModal: React.FC<TourDetailModalProps> = ({
   onClose,
   avalancheRegions,
   originStation,
+  departureDateTime,
   onUpdateTourMeta
 }) => {
-  const [liveJourneys, setLiveJourneys] = useState<LiveJourneyResult[] | null>(null);
+  const [liveJourney, setLiveJourney] = useState<LiveJourneyResult | null>(null);
   const [isLoadingLive, setIsLoadingLive] = useState(false);
   const [liveError, setLiveError] = useState<string | null>(null);
   const [showLivePanel, setShowLivePanel] = useState(false);
@@ -54,8 +56,8 @@ export const TourDetailModal: React.FC<TourDetailModalProps> = ({
       setCurrentRating(tour.rating);
       setCurrentComment(tour.curatedComment || '');
       setCurrentUrl(tour.links.skitourenguruUrl || '');
-      setShowLivePanel(false);
-      setLiveJourneys(null);
+      setLiveJourney(tour.transit.liveJourney || null);
+      setShowLivePanel(Boolean(tour.transit.liveJourney));
     }
   }, [tour]);
 
@@ -64,8 +66,12 @@ export const TourDetailModal: React.FC<TourDetailModalProps> = ({
   const currentRisk = getTourAvalancheRisk(tour, avalancheRegions);
   const eaws = EAWS_COLORS[currentRisk.dangerLevel] || EAWS_COLORS[2];
 
-  const hours = Math.floor(tour.transit.approxTotalMinutes / 60);
-  const minutes = tour.transit.approxTotalMinutes % 60;
+  const effectiveTotalMinutes = liveJourney
+    ? liveJourney.durationMinutes + tour.transit.walkingDurationMinutes
+    : tour.transit.approxTotalMinutes;
+
+  const hours = Math.floor(effectiveTotalMinutes / 60);
+  const minutes = effectiveTotalMinutes % 60;
   const transitTimeStr = `${hours}h ${minutes > 0 ? `${minutes}m` : ''}`;
 
   const handleSaveNotes = () => {
@@ -79,26 +85,36 @@ export const TourDetailModal: React.FC<TourDetailModalProps> = ({
     setLiveError(null);
     setShowLivePanel(true);
     try {
-      const results = await fetchLiveJourneys(
-        tour.transit.destinationIbnr,
+      const result = await fetchLiveTransitPlan(
+        originStation,
+        tour.coordinates.trailhead,
         tour.transit.destinationStation,
+        tour.transit.destinationEva,
         tour.transit.cleanDbStationName,
-        originStation.ibnr,
-        originStation.name
+        departureDateTime
       );
-      if (results.length === 0) {
-        setLiveError(`Keine Fahrten ab ${originStation.name} gefunden. Probiere den direkten DB Navigator Link unten.`);
+      if (!result) {
+        setLiveError(`Keine Verbindung ab ${originStation.name} gefunden. Nutze den direkten DB Navigator Link unten.`);
       } else {
-        setLiveJourneys(results);
+        setLiveJourney(result);
       }
     } catch {
-      setLiveError('Verbindung zum DB Fahrplan-Dienst nicht möglich.');
+      setLiveError('Verbindung zum Fahrplan-Dienst nicht möglich.');
     } finally {
       setIsLoadingLive(false);
     }
   };
 
-  const workingDbUrl = buildDbNavigatorUrl(originStation.name, tour.transit.cleanDbStationName);
+  const workingDbUrl = liveJourney?.dbNavigatorUrl || buildWorkingDbUrl(
+    originStation,
+    {
+      name: tour.transit.destinationStation,
+      coordinates: tour.coordinates.trailhead,
+      eva: tour.transit.destinationEva,
+      cleanDbName: tour.transit.cleanDbStationName
+    },
+    departureDateTime
+  );
 
   return (
     <div className="fixed inset-y-0 right-0 w-full sm:w-[480px] lg:w-[540px] bg-white shadow-2xl z-40 flex flex-col border-l border-slate-200 transform transition-transform duration-300 overflow-hidden">
@@ -315,30 +331,53 @@ export const TourDetailModal: React.FC<TourDetailModalProps> = ({
 
           {/* Live DB Results Box */}
           {showLivePanel && (
-            <div className="mt-3 p-3 bg-white rounded-xl border border-slate-200 space-y-2">
-              <div className="font-bold text-slate-700 border-b pb-1">
-                Echtzeit-Verbindungen ab {originStation.name}:
+            <div className="mt-3 p-3 bg-white rounded-xl border border-slate-200 space-y-2.5">
+              <div className="flex items-center justify-between border-b pb-1.5 text-xs font-bold text-slate-800">
+                <span>Echtzeit-Verbindung ab {originStation.name}:</span>
+                <span className="text-[10px] text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded font-semibold border border-emerald-200">
+                  Transitous / DB GTFS
+                </span>
               </div>
 
               {liveError && <p className="text-xs text-amber-700">{liveError}</p>}
 
-              {liveJourneys && liveJourneys.length > 0 && (
+              {liveJourney && (
                 <div className="space-y-2">
-                  {liveJourneys.map((j, i) => (
-                    <div key={i} className="p-2 bg-slate-50 rounded-lg border border-slate-200 text-xs flex items-center justify-between">
-                      <div>
-                        <div className="font-bold text-slate-800">
-                          {j.departure} → {j.arrival}
+                  <div className="p-2.5 bg-sky-50/70 rounded-xl border border-sky-200 text-xs flex items-center justify-between">
+                    <div>
+                      <div className="font-bold text-sky-950 text-sm">
+                        {liveJourney.departureTime} → {liveJourney.arrivalTime}
+                      </div>
+                      <div className="text-[11px] text-sky-700 mt-0.5">
+                        Dauer: {Math.floor(liveJourney.durationMinutes / 60)}h {liveJourney.durationMinutes % 60}m | {liveJourney.transfers === 0 ? 'Direkt' : `${liveJourney.transfers}x Umstieg`}
+                      </div>
+                    </div>
+                    <span className="text-[11px] font-bold bg-sky-600 text-white px-2 py-1 rounded-lg shadow-2xs">
+                      {liveJourney.legs.filter(l => l.mode !== 'walk').map(l => l.lineName).join(' + ') || 'Regional'}
+                    </span>
+                  </div>
+
+                  {/* Individual Legs */}
+                  <div className="space-y-1.5 pt-1">
+                    <div className="text-[11px] font-semibold text-slate-500">Etappen:</div>
+                    {liveJourney.legs.map((leg, i) => (
+                      <div key={i} className="flex items-center justify-between p-1.5 rounded-lg bg-slate-50 border border-slate-200 text-[11px]">
+                        <div className="flex items-center space-x-1.5 truncate pr-2">
+                          <span className={`px-1.5 py-0.5 rounded text-[10px] font-bold shrink-0 ${
+                            leg.mode === 'walk' ? 'bg-slate-200 text-slate-700' : 'bg-alpine-100 text-alpine-800'
+                          }`}>
+                            {leg.lineName}
+                          </span>
+                          <span className="text-slate-700 truncate">
+                            {leg.originName} → {leg.destinationName}
+                          </span>
                         </div>
-                        <div className="text-[11px] text-slate-500">
-                          Dauer: {Math.floor(j.durationMinutes / 60)}h {j.durationMinutes % 60}m | {j.transfers} Umstiege
+                        <div className="text-right shrink-0 font-medium text-slate-500 text-[10px]">
+                          {leg.departureTime} - {leg.arrivalTime} ({leg.durationMinutes}m)
                         </div>
                       </div>
-                      <span className="text-[10px] font-semibold bg-emerald-100 text-emerald-800 px-1.5 py-0.5 rounded">
-                        Regionalzug
-                      </span>
-                    </div>
-                  ))}
+                    ))}
+                  </div>
                 </div>
               )}
             </div>

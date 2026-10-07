@@ -17,10 +17,33 @@ export interface TransitStep {
   note?: string;
 }
 
+export interface LiveJourneyLeg {
+  lineName: string;
+  mode: string;
+  originName: string;
+  destinationName: string;
+  departureTime: string;
+  arrivalTime: string;
+  durationMinutes: number;
+  headsign?: string;
+}
+
+export interface LiveJourneyResult {
+  departureTime: string;
+  arrivalTime: string;
+  durationMinutes: number;
+  transfers: number;
+  legs: LiveJourneyLeg[];
+  dbNavigatorUrl: string;
+  source: 'transitous' | 'estimate';
+}
+
 export interface OriginStation {
   id: string;
   name: string;
   ibnr: string;
+  eva?: string;
+  cleanDbName?: string;
   coordinates: [number, number]; // [lng, lat]
   note?: string;
 }
@@ -30,6 +53,7 @@ export interface TransitInfo {
   destinationStation: string; // Display destination (e.g. "Baad", "Riezlern Kanzelwandbahn")
   cleanDbStationName: string; // Sanitized station name recognized by bahn.de (e.g. "Oberstdorf", "Pfronten-Steinach")
   destinationIbnr: string; // DB Station IBNR
+  destinationEva?: string; // DB EVA ID
   lines: string[]; // e.g. ["BRB RB 69", "RE 17", "Walserbus 1"]
   transfers: number;
   approxTotalMinutes: number;
@@ -39,6 +63,7 @@ export interface TransitInfo {
   extraCostEuro: number;
   transitDescription: string;
   steps: TransitStep[];
+  liveJourney?: LiveJourneyResult;
 }
 
 export interface DavHut {

@@ -1,15 +1,16 @@
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import { SKI_TOURS } from './data/tours';
 import { FALLBACK_AVALANCHE_REGIONS } from './data/avalancheData';
 import { DEFAULT_ORIGIN_STATION, POPULAR_ORIGIN_STATIONS } from './data/trainLines';
 import { fetchAvalancheRegions, getTourAvalancheRisk } from './services/avalancheService';
+import { fetchBatchTourTimetables } from './services/transitService';
 import {
   loadUserMeta,
   saveUserTourMeta,
   downloadUserMetaJson,
   loadCustomTours
 } from './data/userMeta';
-import { SkiTour, FilterState, AvalancheRegion, OriginStation } from './types';
+import { SkiTour, FilterState, AvalancheRegion, OriginStation, LiveJourneyResult } from './types';
 import { Navbar } from './components/Header/Navbar';
 import { AlpineMap } from './components/Map/AlpineMap';
 import { FilterSidebar } from './components/Filters/FilterSidebar';
@@ -20,12 +21,35 @@ import { SlidersHorizontal, Mountain, Train } from 'lucide-react';
 
 const ORIGIN_STORAGE_KEY = 'skitour_active_origin_v1';
 
+function getDefaultDepartureDateTime(): string {
+  const now = new Date();
+  const dayOfWeek = now.getDay();
+  let daysUntilSaturday = (6 - dayOfWeek + 7) % 7;
+  if (daysUntilSaturday === 0 && now.getHours() >= 12) {
+    daysUntilSaturday = 7;
+  }
+  const sat = new Date(now);
+  sat.setDate(now.getDate() + daysUntilSaturday);
+  sat.setHours(6, 30, 0, 0);
+
+  const pad = (n: number) => String(n).padStart(2, '0');
+  const yyyy = sat.getFullYear();
+  const mm = pad(sat.getMonth() + 1);
+  const dd = pad(sat.getDate());
+  const hh = pad(sat.getHours());
+  const min = pad(sat.getMinutes());
+  return `${yyyy}-${mm}-${dd}T${hh}:${min}`;
+}
+
 export const App: React.FC = () => {
   const [selectedTour, setSelectedTour] = useState<SkiTour | null>(null);
   const [avalancheRegions, setAvalancheRegions] = useState<AvalancheRegion[]>(FALLBACK_AVALANCHE_REGIONS);
   const [isFilterDrawerOpen, setIsFilterDrawerOpen] = useState(false);
   const [isAddTourModalOpen, setIsAddTourModalOpen] = useState(false);
   const [mobileView, setMobileView] = useState<'map' | 'list'>('map');
+
+  // Departure date and time for timetable queries (defaults to upcoming Saturday 06:30)
+  const [departureDateTime, setDepartureDateTime] = useState<string>(() => getDefaultDepartureDateTime());
 
   // Active Origin Station
   const [originStation, setOriginStation] = useState<OriginStation>(() => {
@@ -42,6 +66,10 @@ export const App: React.FC = () => {
   // Custom user-created tours
   const [customTours, setCustomTours] = useState<SkiTour[]>(() => loadCustomTours());
 
+  // Live journey timetables mapped by tourId
+  const [liveJourneysMap, setLiveJourneysMap] = useState<Record<string, LiveJourneyResult>>({});
+  const [isTimetableLoading, setIsTimetableLoading] = useState(false);
+
   // Load live avalanche bulletins on mount
   useEffect(() => {
     fetchAvalancheRegions().then(regions => {
@@ -56,8 +84,8 @@ export const App: React.FC = () => {
     } catch {}
   };
 
-  // Merge base tours + custom tours + user metadata (ratings & comments)
-  const allTours: SkiTour[] = useMemo(() => {
+  // Base combined tours without live timetable override
+  const baseTours = useMemo(() => {
     const combined = [...SKI_TOURS, ...customTours];
 
     return combined.map(tour => {
@@ -66,12 +94,6 @@ export const App: React.FC = () => {
       const comment = meta && meta.comment !== undefined ? meta.comment : tour.curatedComment;
       const guruUrl = meta && meta.skitourenguruUrl ? meta.skitourenguruUrl : tour.links.skitourenguruUrl;
       const isVerified = meta && meta.isVerifiedUrl !== undefined ? meta.isVerifiedUrl : tour.links.isVerifiedUrl;
-
-      // Adjust origin label if changed
-      const transitCopy = {
-        ...tour.transit,
-        origin: originStation.name
-      };
 
       return {
         ...tour,
@@ -82,10 +104,50 @@ export const App: React.FC = () => {
           skitourenguruUrl: guruUrl,
           isVerifiedUrl: isVerified
         },
-        transit: transitCopy
+        transit: {
+          ...tour.transit,
+          origin: originStation.name
+        }
       };
     });
-  }, [userMetaMap, customTours, originStation]);
+  }, [userMetaMap, customTours, originStation.name]);
+
+  // Batch fetch live timetables from Transitous
+  const handleFetchTimetables = useCallback(async () => {
+    setIsTimetableLoading(true);
+    try {
+      const results = await fetchBatchTourTimetables(baseTours, originStation, departureDateTime);
+      setLiveJourneysMap(results);
+    } catch (err) {
+      console.error('Error fetching batch timetables:', err);
+    } finally {
+      setIsTimetableLoading(false);
+    }
+  }, [baseTours, originStation, departureDateTime]);
+
+  // Debounced auto-fetch whenever origin or departure time changes
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      handleFetchTimetables();
+    }, 350);
+    return () => clearTimeout(timer);
+  }, [originStation.id, departureDateTime, baseTours.length]);
+
+  // Merge live timetable data into each tour
+  const allTours: SkiTour[] = useMemo(() => {
+    return baseTours.map(tour => {
+      const live = liveJourneysMap[tour.id];
+      if (!live) return tour;
+
+      return {
+        ...tour,
+        transit: {
+          ...tour.transit,
+          liveJourney: live
+        }
+      };
+    });
+  }, [baseTours, liveJourneysMap]);
 
   // Filter State
   const [filters, setFilters] = useState<FilterState>({
@@ -143,8 +205,12 @@ export const App: React.FC = () => {
         return false;
       }
 
-      // Transit duration
-      if (tour.transit.approxTotalMinutes > filters.maxTransitDurationMinutes) {
+      // Transit duration (uses live journey duration if fetched, plus walking duration)
+      const effectiveTransitDuration = tour.transit.liveJourney
+        ? tour.transit.liveJourney.durationMinutes + tour.transit.walkingDurationMinutes
+        : tour.transit.approxTotalMinutes;
+
+      if (effectiveTransitDuration > filters.maxTransitDurationMinutes) {
         return false;
       }
 
@@ -183,8 +249,15 @@ export const App: React.FC = () => {
       return true;
     }).sort((a, b) => {
       switch (filters.sortBy) {
-        case 'transitTime':
-          return a.transit.approxTotalMinutes - b.transit.approxTotalMinutes;
+        case 'transitTime': {
+          const durA = a.transit.liveJourney
+            ? a.transit.liveJourney.durationMinutes + a.transit.walkingDurationMinutes
+            : a.transit.approxTotalMinutes;
+          const durB = b.transit.liveJourney
+            ? b.transit.liveJourney.durationMinutes + b.transit.walkingDurationMinutes
+            : b.transit.approxTotalMinutes;
+          return durA - durB;
+        }
         case 'elevationGain':
           return b.elevationGain - a.elevationGain;
         case 'rating':
@@ -245,6 +318,10 @@ export const App: React.FC = () => {
         isFilterDrawerOpen={isFilterDrawerOpen}
         originStation={originStation}
         onChangeOrigin={handleChangeOrigin}
+        departureDateTime={departureDateTime}
+        onChangeDepartureDateTime={setDepartureDateTime}
+        onRefreshTimetables={handleFetchTimetables}
+        isTimetableLoading={isTimetableLoading}
         onOpenAddTour={() => setIsAddTourModalOpen(true)}
         onExportJson={downloadUserMetaJson}
       />
@@ -362,6 +439,7 @@ export const App: React.FC = () => {
             onClose={() => setSelectedTour(null)}
             avalancheRegions={avalancheRegions}
             originStation={originStation}
+            departureDateTime={departureDateTime}
             onUpdateTourMeta={handleUpdateTourMeta}
           />
         )}
