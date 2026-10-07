@@ -8,6 +8,12 @@
   }
 }
 
+@layer components {
+  .input {
+    @apply w-full px-2.5 py-1.5 text-xs bg-white rounded-lg border border-slate-300 focus:outline-none focus:ring-2 focus:ring-alpine-500/30 focus:border-alpine-500;
+  }
+}
+
 /* Custom scrollbars */
 ::-webkit-scrollbar {
   width: 6px;

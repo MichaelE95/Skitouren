@@ -1,127 +1,101 @@
-export type SACGrade = 
-  | 'L-' | 'L' | 'L+' 
-  | 'WS-' | 'WS' | 'WS+' 
-  | 'ZS-' | 'ZS' | 'ZS+' 
+export type SACGrade =
+  | 'L-' | 'L' | 'L+'
+  | 'WS-' | 'WS' | 'WS+'
+  | 'ZS-' | 'ZS' | 'ZS+'
   | 'S-' | 'S' | 'S+'
   | 'SS';
 
 export type SACCategory = 'L' | 'WS' | 'ZS' | 'S';
 
-export type DTicketStatus = '100% gültig' | 'Zusatzkosten nötig';
+export const SAC_GRADES: SACGrade[] = [
+  'L-', 'L', 'L+', 'WS-', 'WS', 'WS+', 'ZS-', 'ZS', 'ZS+', 'S-', 'S', 'S+', 'SS'
+];
 
-export interface LiveJourneyLeg {
-  lineName: string;
-  mode: string;
-  originName: string;
-  destinationName: string;
-  departureTime: string;
-  arrivalTime: string;
-  durationMinutes: number;
-  headsign?: string;
+/** Broad filter category of an SAC grade (WS+ -> WS, SS -> S). */
+export function sacCategory(grade: SACGrade): SACCategory {
+  if (grade.startsWith('WS')) return 'WS';
+  if (grade.startsWith('ZS')) return 'ZS';
+  if (grade.startsWith('S')) return 'S';
+  return 'L';
 }
 
-export interface LiveJourneyResult {
-  departureTime: string;
-  arrivalTime: string;
-  durationMinutes: number;
-  transfers: number;
-  legs: LiveJourneyLeg[];
-  dbNavigatorUrl: string;
-  source: 'transitous' | 'estimate';
-}
-
-export interface MasterStation {
-  id: string;
-  name: string;
-  ibnr?: string;
-  eva?: string;
-  cleanDbName?: string;
-  coordinates: [number, number]; // [lng, lat]
-  type?: 'rail' | 'bus';
-  dTicketNotice?: string;
-  isCustom?: boolean;
-  note?: string;
-}
-
-export type OriginStation = MasterStation;
-
-export interface TransitInfo {
-  origin: string; // Active origin station name
-  destinationStation: string; // Display destination
-  cleanDbStationName: string; // Sanitized station name for bahn.de / routing
-  destinationIbnr: string;
-  destinationEva: string;
-  walkingDistanceMeters: number;
-  walkingDurationMinutes: number;
-  dTicketValidity: DTicketStatus;
-  extraCostEuro: number;
-  liveJourney?: LiveJourneyResult;
-}
-
-export interface DavHut {
-  name: string;
-  elevation: number;
-  davLink?: string;
-  hasWinterRoom: boolean;
-  notes?: string;
-}
-
-export interface UserTourMeta {
-  tourId: string;
-  peakName?: string;
-  skitourenguruUrl?: string;
-  rating: number | null; // null = noch nicht gemacht / unrated; 1 to 5
-  comment: string;
-  manualStationOverride?: string;
-  lastModified?: string;
-}
-
+/**
+ * A ski tour. Stored in public/tours/tours.json; the GPX lives next to it.
+ * Nothing here is guessed: metrics come from the GPX, peak/range from OSM+Wikidata
+ * (or typed in), the rest is entered by the user.
+ */
 export interface SkiTour {
   id: string;
-  name: string; // Gipfel / Tour Name
-  mountainRange: string;
-  valley?: string;
-  type: 'day' | 'multiday';
-  isPiste: boolean;
-  
-  // Elevation & distance (strictly derived from GPX)
-  startElevation: number; // m
-  peakElevation: number; // m
-  elevationGain: number; // hm
-  distanceKm: number; // km
-  estimatedTourDurationHours: number; // calculated from DIN 33466 / SAC
+  gpxFile: string; // file name inside public/tours/
 
-  // Technical ratings
+  // Looked up once on creation (OSM peak -> Wikidata P4552), editable
+  peakName: string;
+  mountainRange: string | null; // null = unknown
+
+  // Derived strictly from the GPX
+  startElevation: number;
+  peakElevation: number;
+  elevationGain: number;
+  distanceKm: number;
+  trailhead: [number, number]; // first GPX point [lng, lat]
+  summit: [number, number]; // highest GPX point [lng, lat]
+  track: [number, number][]; // simplified track for the map
+
+  // Entered by the user
   difficulty: SACGrade;
-  difficultyCategory: SACCategory;
-  maxSafeAvalancheLevel?: number;
-  exposition?: string;
+  isPiste: boolean;
+  skitourenguruUrl?: string;
+  rating: number | null; // null = not done yet, 1..5
+  notes: string;
+}
 
-  // Geolocation [longitude, latitude]
-  coordinates: {
-    trailhead: [number, number];
-    summit: [number, number];
-  };
-  gpxTrackCoordinates: [number, number][];
+export interface Place {
+  name: string;
+  coordinates: [number, number]; // [lng, lat]
+}
 
-  // Public transit
-  transit: TransitInfo;
+export type LegMode = 'walk' | 'rail' | 'bus' | 'other';
 
-  // External links & resources
-  links: {
-    skitourenguruUrl?: string; // Optional - empty by default, no guessing
-    gpxDownloadUrl?: string;
-    alpenvereinUrl?: string;
-    webcamUrl?: string;
-  };
+export interface JourneyLeg {
+  mode: LegMode;
+  rawMode: string; // e.g. REGIONAL_RAIL
+  lineName: string;
+  headsign?: string;
+  fromName: string;
+  toName: string;
+  departure: string; // ISO
+  arrival: string; // ISO
+  durationMinutes: number;
+  distanceMeters?: number; // walk legs only
+  geometry?: [number, number][]; // walk legs only, [lng, lat]
+}
 
-  // Multi-day & DAV huts
-  huts?: DavHut[];
+/** One Transitous itinerary from the origin to the trailhead. */
+export interface Journey {
+  departure: string; // ISO
+  arrival: string; // ISO
+  durationMinutes: number; // door to trailhead, all walks included
+  transfers: number;
+  legs: JourneyLeg[];
+  lastStopName: string | null; // where the last vehicle leg ends (null = walk only)
+  finalWalkMinutes: number;
+  finalWalkMeters: number;
+}
 
-  // User metadata (rating, comment)
-  rating: number | null; // null = not yet done
-  curatedComment: string; // User notes
-  isCustomTour?: boolean; // true if created by user
+export type TourTransitResult =
+  | { ok: true; best: Journey; alternatives: Journey[] }
+  | { ok: false; error: string };
+
+export interface TransitParams {
+  origin: Place;
+  departureLocal: string; // "YYYY-MM-DDTHH:mm" in local time
+  onlyRegional: boolean;
+}
+
+export interface TransitSnapshot {
+  params: TransitParams;
+  calculatedAt: string; // ISO
+  results: Record<string, TourTransitResult>;
 }
 
 export interface AvalancheRegion {
@@ -141,15 +115,22 @@ export interface AvalancheRegion {
 
 export interface FilterState {
   searchQuery: string;
-  onlyDTicket: boolean;
   onlyPiste: boolean;
   maxTransitDurationMinutes: number;
-  maxAvalancheLevel: number;
-  minElevationGain: number;
   maxElevationGain: number;
   selectedDifficulties: SACCategory[];
   selectedRanges: string[];
-  tourType: 'all' | 'day' | 'multiday';
   ratingFilter: 'all' | 'unrated' | 'rated_only' | 'min_4_stars';
   sortBy: 'transitTime' | 'elevationGain' | 'rating' | 'difficulty';
 }
+
+export const DEFAULT_FILTERS: FilterState = {
+  searchQuery: '',
+  onlyPiste: false,
+  maxTransitDurationMinutes: 300,
+  maxElevationGain: 2000,
+  selectedDifficulties: [],
+  selectedRanges: [],
+  ratingFilter: 'all',
+  sortBy: 'transitTime'
+};

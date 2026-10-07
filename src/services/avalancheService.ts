@@ -35,10 +35,10 @@ export async function fetchAvalancheRegions(): Promise<AvalancheRegion[]> {
  * Matches a ski tour to its avalanche warning polygon using point-in-polygon.
  */
 export function getTourAvalancheRisk(
-  tour: SkiTour,
+  tour: Pick<SkiTour, 'summit'>,
   regions: AvalancheRegion[]
-): AvalancheRegion {
-  const summitPt = point(tour.coordinates.summit);
+): AvalancheRegion | null {
+  const summitPt = point(tour.summit);
 
   for (const reg of regions) {
     try {
@@ -51,11 +51,6 @@ export function getTourAvalancheRisk(
     }
   }
 
-  // Fallback to first matching mountain range or default
-  const rangeMatch = regions.find(r => 
-    r.name.toLowerCase().includes(tour.mountainRange.toLowerCase()) ||
-    tour.mountainRange.toLowerCase().includes(r.id.split('-')[0])
-  );
-
-  return rangeMatch || regions[0] || FALLBACK_AVALANCHE_REGIONS[0];
+  // No region contains the summit: report "unknown" instead of guessing a region
+  return null;
 }

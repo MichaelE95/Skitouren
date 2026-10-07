@@ -1,343 +1,177 @@
-import { LiveJourneyResult, LiveJourneyLeg, OriginStation, SkiTour } from '../types';
-import { ALL_PRESET_ORIGIN_STATIONS, KEY_STATIONS, TrainStation } from '../data/trainLines';
-
-// In-memory cache for itineraries
-const journeyCache = new Map<string, LiveJourneyResult>();
+import { Journey, JourneyLeg, LegMode, Place, SkiTour, TourTransitResult, TransitParams } from '../types';
+import { decodePolyline } from '../utils/polyline';
 
 /**
- * Builds a 100% verified DB Navigator / bahn.de deep-link.
- * Uses exact HAFAS parameters so the new bahn.de Single Page App executes the search automatically.
- * Automatically enables `dlt=true` and regional transit modes `vm=03,04,05,06,07,08,09` if onlyRegional is active.
+ * The ONLY source of travel times: Transitous (MOTIS) routing from the origin
+ * coordinates to the tour's trailhead coordinates (first GPX point).
+ * The returned duration already includes every walk, including the final one
+ * from the last stop to the trailhead. Nothing is added on top.
+ *
+ * Usage policy: https://transitous.org/api/ (open-source, non-commercial, light usage).
  */
-export function buildWorkingDbUrl(
-  origin: { name: string; coordinates: [number, number]; eva?: string; cleanDbName?: string },
-  destination: { name: string; coordinates: [number, number]; eva?: string; cleanDbName?: string },
-  departureDateTimeIso?: string,
-  onlyRegional: boolean = true
-): string {
-  const originName = origin.cleanDbName || origin.name;
-  const destName = destination.cleanDbName || destination.name;
-  const originEva = origin.eva || '780251';
-  const destEva = destination.eva || '8100088';
+const API = 'https://api.transitous.org/api/v1';
 
-  const soid = `A=1@O=${originName}@X=${Math.round(origin.coordinates[0] * 1e6)}@Y=${Math.round(origin.coordinates[1] * 1e6)}@U=80@L=${originEva}@`;
-  const zoid = `A=1@O=${destName}@X=${Math.round(destination.coordinates[0] * 1e6)}@Y=${Math.round(destination.coordinates[1] * 1e6)}@U=80@L=${destEva}@`;
+/** Deutschland-Ticket style: regional trains, S-Bahn, buses, trams, subway. No ICE/IC/EC, no Flixbus (COACH). */
+const REGIONAL_MODES = 'REGIONAL_FAST_RAIL,REGIONAL_RAIL,SUBURBAN,BUS,TRAM,SUBWAY';
 
-  const hd = departureDateTimeIso ? departureDateTimeIso.slice(0, 19) : new Date().toISOString().slice(0, 19);
+const MAX_WALK_SECONDS = 3600; // Q6: up to 60 min walking at both ends
+const CONCURRENCY = 3;
+const TIMEOUT_MS = 20000;
 
-  let url = (
-    `https://www.bahn.de/buchung/fahrplan/suche#sts=true` +
-    `&so=${encodeURIComponent(originName)}` +
-    `&zo=${encodeURIComponent(destName)}` +
-    `&soei=${encodeURIComponent(originEva)}` +
-    `&zoei=${encodeURIComponent(destEva)}` +
-    `&sot=ST&zot=ST` +
-    `&soid=${encodeURIComponent(soid)}` +
-    `&zoid=${encodeURIComponent(zoid)}` +
-    `&kl=2` +
-    `&r=13:16:KLASSENLOS:1` +
-    `&hd=${encodeURIComponent(hd)}` +
-    `&hza=D`
-  );
+export const DEFAULT_ORIGIN: Place = {
+  // Coordinates from the Transitous geocoder (type=STOP)
+  name: 'Augsburg Haunstetterstraße',
+  coordinates: [10.900985, 48.355286]
+};
 
-  if (onlyRegional) {
-    url += `&dlt=true&vm=03,04,05,06,07,08,09`;
-  } else {
-    url += `&dlt=false`;
-  }
+export const LONG_FINAL_WALK_MINUTES = 30;
 
-  url += `&s=true`;
-  return url;
-}
-
-/**
- * Backwards-compatible alias for buildWorkingDbUrl with simple names.
- */
-export function buildDbNavigatorUrl(
-  originName: string,
-  destinationName: string,
-  departureDateTimeIso?: string,
-  onlyRegional: boolean = true
-): string {
-  const foundOrigin = ALL_PRESET_ORIGIN_STATIONS.find(s => s.name === originName || s.cleanDbName === originName);
-  const foundDest = KEY_STATIONS.find(s => s.name === destinationName || s.cleanDbName === destinationName);
-
-  const originStation = foundOrigin || {
-    name: originName,
-    coordinates: [10.9023, 48.3512] as [number, number],
-    eva: '780251',
-    cleanDbName: originName
-  };
-
-  const destStation = foundDest || {
-    name: destinationName,
-    coordinates: [11.2642, 47.3889] as [number, number],
-    eva: '8100088',
-    cleanDbName: destinationName
-  };
-
-  return buildWorkingDbUrl(originStation, destStation, departureDateTimeIso, onlyRegional);
-}
-
-/**
- * Formats an ISO string to a clean time string "HH:MM".
- */
-function formatTime(isoString: string): string {
-  try {
-    const d = new Date(isoString);
-    return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-  } catch {
-    return '--:--';
-  }
-}
-
-/**
- * Normalizes train/bus line names from Transitous/MOTIS feeds.
- */
-function normalizeLineName(leg: any): string {
-  if (leg.mode === 'WALK') return 'Fußweg';
-  if (leg.routeShortName) return leg.routeShortName;
-  if (leg.route) {
-    // E.g. "REGIONAL_RAIL RE9 (57015)" -> "RE 9"
-    const match = leg.route.match(/\b([A-Z]{1,4}\s*\d+)\b/);
-    if (match) return match[1];
-    return leg.route;
-  }
-  if (leg.mode === 'REGIONAL_RAIL' || leg.mode === 'RAIL') return 'Regionalbahn';
-  if (leg.mode === 'BUS') return 'Bus';
-  return leg.mode || 'Zug';
-}
-
-/**
- * Queries Transitous (MOTIS) API for live schedule routing between coordinates.
- */
-export async function fetchLiveTransitPlan(
-  origin: OriginStation,
-  destinationCoords: [number, number], // [lng, lat]
-  destStationName: string,
-  destEva: string = '8000000',
-  destCleanDbName?: string,
-  departureDateTimeIso?: string,
-  onlyRegional: boolean = true
-): Promise<LiveJourneyResult | null> {
-  const cacheKey = `${origin.id}_${destinationCoords[0].toFixed(4)},${destinationCoords[1].toFixed(4)}_${departureDateTimeIso || 'now'}_${onlyRegional ? 'regional' : 'all'}`;
-  if (journeyCache.has(cacheKey)) {
-    return journeyCache.get(cacheKey)!;
-  }
+/** Plans one journey origin -> trailhead and returns the earliest-arrival itinerary plus alternatives. */
+export async function planTourJourney(
+  tour: Pick<SkiTour, 'trailhead'>,
+  params: TransitParams
+): Promise<TourTransitResult> {
+  const [oLng, oLat] = params.origin.coordinates;
+  const [tLng, tLat] = tour.trailhead;
+  const q = new URLSearchParams({
+    fromPlace: `${oLat},${oLng}`,
+    toPlace: `${tLat},${tLng}`,
+    time: new Date(params.departureLocal).toISOString(),
+    maxPreTransitTime: String(MAX_WALK_SECONDS),
+    maxPostTransitTime: String(MAX_WALK_SECONDS)
+  });
+  if (params.onlyRegional) q.set('transitModes', REGIONAL_MODES);
 
   try {
-    const fromPlace = `${origin.coordinates[1]},${origin.coordinates[0]}`;
-    const toPlace = `${destinationCoords[1]},${destinationCoords[0]}`;
-
-    let apiUrl = `https://api.transitous.org/api/v1/plan?fromPlace=${fromPlace}&toPlace=${toPlace}&maxWalkDistance=3500`;
-
-    if (onlyRegional) {
-      apiUrl += `&transitModes=REGIONAL_RAIL,BUS,TRAM,SUBWAY`;
-    } else {
-      apiUrl += `&mode=TRANSIT,WALK`;
+    const data = await fetchJsonWithRetry(`${API}/plan?${q.toString()}`);
+    const its: any[] = Array.isArray(data?.itineraries) ? data.itineraries : [];
+    if (its.length === 0) {
+      return { ok: false, error: 'No connection found (no stop within 60 min walk of the trailhead, or no service at that time).' };
     }
-
-    if (departureDateTimeIso) {
-      // Ensure UTC/ISO string for Transitous
-      const isoTime = new Date(departureDateTimeIso).toISOString();
-      apiUrl += `&time=${encodeURIComponent(isoTime)}`;
-    }
-
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 7000);
-
-    const res = await fetch(apiUrl, {
-      signal: controller.signal,
-      headers: {
-        'User-Agent': 'SkitourPlanerAugsburg/1.0 (https://github.com/skitour-planer)',
-        Accept: 'application/json'
-      }
-    });
-    clearTimeout(timeoutId);
-
-    if (!res.ok) {
-      throw new Error(`Transitous API returned status ${res.status}`);
-    }
-
-    const data = await res.json();
-    const itineraries = data.itineraries;
-    if (!Array.isArray(itineraries) || itineraries.length === 0) {
-      return null;
-    }
-
-    // Pick best itinerary (fastest with reasonable transit legs)
-    const it = itineraries[0];
-    const durationMinutes = Math.round(it.duration / 60);
-
-    const legs: LiveJourneyLeg[] = (it.legs || []).map((leg: any) => {
-      const mode = leg.mode === 'WALK' ? 'walk' : leg.mode === 'BUS' ? 'bus' : 'rail';
-      return {
-        lineName: normalizeLineName(leg),
-        mode,
-        originName: leg.from?.name === 'START' ? origin.name : leg.from?.name || '',
-        destinationName: leg.to?.name === 'END' ? destStationName : leg.to?.name || '',
-        departureTime: formatTime(leg.startTime || leg.departure),
-        arrivalTime: formatTime(leg.endTime || leg.arrival),
-        durationMinutes: Math.round((leg.duration || 0) / 60),
-        headsign: leg.headsign
-      };
-    });
-
-    // Count actual vehicle transfers (excluding walk-only legs)
-    const transitLegsCount = legs.filter(l => l.mode !== 'walk').length;
-    const transfers = Math.max(0, transitLegsCount - 1);
-
-    const dbNavigatorUrl = buildWorkingDbUrl(
-      origin,
-      {
-        name: destStationName,
-        coordinates: destinationCoords,
-        eva: destEva,
-        cleanDbName: destCleanDbName || destStationName
-      },
-      departureDateTimeIso,
-      onlyRegional
-    );
-
-    const result: LiveJourneyResult = {
-      departureTime: formatTime(it.startTime),
-      arrivalTime: formatTime(it.endTime),
-      durationMinutes,
-      transfers,
-      legs,
-      dbNavigatorUrl,
-      source: 'transitous'
-    };
-
-    journeyCache.set(cacheKey, result);
-    return result;
+    const journeys = its.map(it => toJourney(it, params.origin.name));
+    // Q4: earliest arrival at the trailhead, ties -> fewer transfers
+    journeys.sort((a, b) => a.arrival.localeCompare(b.arrival) || a.transfers - b.transfers);
+    return { ok: true, best: journeys[0], alternatives: journeys.slice(1) };
   } catch (err) {
-    console.warn(`Could not fetch live transit plan to ${destStationName}:`, err);
-    return null;
+    return { ok: false, error: err instanceof Error ? err.message : String(err) };
   }
 }
 
 /**
- * Batch queries transit times for all tours from an origin station and departure time.
- * Deduplicates destination stations to minimize network requests.
+ * Calculates journeys for many tours with limited concurrency.
+ * onResult is called as soon as each tour finishes so the UI updates progressively.
  */
-export async function fetchBatchTourTimetables(
+export async function planAllTours(
   tours: SkiTour[],
-  origin: OriginStation,
-  departureDateTimeIso?: string,
-  onlyRegional: boolean = true,
-  onProgress?: (tourId: string, journey: LiveJourneyResult) => void
-): Promise<Record<string, LiveJourneyResult>> {
-  // Group tours by unique destination station coordinates/cleanDbName
-  const uniqueDestinations = new Map<string, {
-    stationName: string;
-    coords: [number, number];
-    eva: string;
-    cleanDbName: string;
-    tourIds: string[];
-  }>();
-
-  for (const tour of tours) {
-    const stName = tour.transit.cleanDbStationName || tour.transit.destinationStation;
-    const coords = tour.coordinates.trailhead;
-    const eva = tour.transit.destinationEva || '8000000';
-    const cleanDbName = tour.transit.cleanDbStationName || stName;
-
-    // Use cleanDbName + rounded coords as deduplication key
-    const key = `${cleanDbName.toLowerCase()}_${coords[0].toFixed(2)},${coords[1].toFixed(2)}`;
-    if (!uniqueDestinations.has(key)) {
-      uniqueDestinations.set(key, {
-        stationName: stName,
-        coords,
-        eva,
-        cleanDbName,
-        tourIds: [tour.id]
-      });
-    } else {
-      uniqueDestinations.get(key)!.tourIds.push(tour.id);
+  params: TransitParams,
+  onResult: (tourId: string, result: TourTransitResult) => void
+): Promise<void> {
+  let next = 0;
+  const worker = async () => {
+    while (next < tours.length) {
+      const tour = tours[next++];
+      const result = await planTourJourney(tour, params);
+      onResult(tour.id, result);
     }
-  }
-
-  const results: Record<string, LiveJourneyResult> = {};
-  const destEntries = Array.from(uniqueDestinations.values());
-  const batchSize = 6; // Fast parallel queries
-
-  for (let i = 0; i < destEntries.length; i += batchSize) {
-    const batch = destEntries.slice(i, i + batchSize);
-    await Promise.all(
-      batch.map(async (entry) => {
-        try {
-          const journey = await fetchLiveTransitPlan(
-            origin,
-            entry.coords,
-            entry.stationName,
-            entry.eva,
-            entry.cleanDbName,
-            departureDateTimeIso,
-            onlyRegional
-          );
-
-          if (journey) {
-            for (const tourId of entry.tourIds) {
-              results[tourId] = journey;
-              if (onProgress) {
-                onProgress(tourId, journey);
-              }
-            }
-          }
-        } catch (err) {
-          console.warn(`Could not fetch transit to ${entry.cleanDbName}:`, err);
-        }
-      })
-    );
-  }
-
-  return results;
+  };
+  await Promise.all(Array.from({ length: Math.min(CONCURRENCY, tours.length) }, worker));
 }
 
-/**
- * Search stations across internal database + live geocoder.
- */
-export async function searchStations(query: string): Promise<OriginStation[]> {
-  const cleanQ = query.trim().toLowerCase();
-  if (!cleanQ) return ALL_PRESET_ORIGIN_STATIONS;
+/** Free-text place search (stops, addresses, places) via the Transitous geocoder. */
+export async function geocode(text: string): Promise<(Place & { detail: string })[]> {
+  const q = new URLSearchParams({ text, language: 'de' });
+  const data = await fetchJsonWithRetry(`${API}/geocode?${q.toString()}`, 1);
+  if (!Array.isArray(data)) return [];
+  return data.slice(0, 8).map((item: any) => {
+    const areas: any[] = Array.isArray(item.areas) ? item.areas : [];
+    const city = areas.filter(a => a.adminLevel >= 6 && a.adminLevel <= 8).map(a => a.name)[0];
+    const typeLabel = item.type === 'STOP' ? 'Stop' : item.type === 'ADDRESS' ? 'Address' : 'Place';
+    return {
+      name: item.type === 'ADDRESS' && city ? `${item.name}, ${city}` : item.name,
+      coordinates: [item.lon, item.lat] as [number, number],
+      detail: [typeLabel, city, item.country].filter(Boolean).join(' · ')
+    };
+  });
+}
 
-  // 1. Instant match in preset stations
-  const presetMatches = ALL_PRESET_ORIGIN_STATIONS.filter(
-    s => s.name.toLowerCase().includes(cleanQ) || (s.cleanDbName && s.cleanDbName.toLowerCase().includes(cleanQ))
-  );
+// ---------------------------------------------------------------------------
 
-  if (cleanQ.length < 3) {
-    return presetMatches;
-  }
+function toJourney(it: any, originName: string): Journey {
+  const legs: JourneyLeg[] = (it.legs || []).map((leg: any) => toLeg(leg, originName));
+  const vehicleLegs = legs.filter(l => l.mode !== 'walk');
+  const lastLeg = legs[legs.length - 1];
+  const finalWalk = lastLeg && lastLeg.mode === 'walk' ? lastLeg : null;
+  return {
+    departure: it.startTime,
+    arrival: it.endTime,
+    durationMinutes: Math.round(it.duration / 60),
+    transfers: typeof it.transfers === 'number' ? it.transfers : Math.max(0, vehicleLegs.length - 1),
+    legs,
+    lastStopName: vehicleLegs.length ? vehicleLegs[vehicleLegs.length - 1].toName : null,
+    finalWalkMinutes: finalWalk ? finalWalk.durationMinutes : 0,
+    finalWalkMeters: finalWalk ? Math.round(finalWalk.distanceMeters || 0) : 0
+  };
+}
 
-  // 2. Query Transitous Geocoder for any station in Germany/Austria
-  try {
-    const res = await fetch(`https://api.transitous.org/api/v1/geocode?text=${encodeURIComponent(query)}`, {
-      headers: { 'User-Agent': 'SkitourPlanerAugsburg/1.0' }
-    });
-    if (res.ok) {
-      const data = await res.json();
-      if (Array.isArray(data)) {
-        const remoteMatches: OriginStation[] = data.slice(0, 5).map((item: any, idx: number) => ({
-          id: `remote-${item.id || idx}`,
-          name: item.name,
-          cleanDbName: item.name,
-          ibnr: '8000000',
-          eva: '8000000',
-          coordinates: [item.lon, item.lat] as [number, number],
-          note: item.country ? `${item.country} (Live-Suche)` : 'Bahnhof (Live-Suche)'
-        }));
-
-        // Deduplicate against preset matches
-        const existingNames = new Set(presetMatches.map(p => p.name.toLowerCase()));
-        const uniqueRemotes = remoteMatches.filter(r => !existingNames.has(r.name.toLowerCase()));
-        return [...presetMatches, ...uniqueRemotes];
-      }
+function toLeg(leg: any, originName: string): JourneyLeg {
+  const mode = classifyMode(leg.mode);
+  const fromName = leg.from?.name === 'START' ? originName : leg.from?.name || '';
+  const toName = leg.to?.name === 'END' ? 'Trailhead (GPX start)' : leg.to?.name || '';
+  const out: JourneyLeg = {
+    mode,
+    rawMode: leg.mode,
+    lineName: mode === 'walk' ? 'Walk' : lineName(leg),
+    headsign: leg.headsign || undefined,
+    fromName,
+    toName,
+    departure: leg.startTime,
+    arrival: leg.endTime,
+    durationMinutes: Math.round((leg.duration || 0) / 60)
+  };
+  if (mode === 'walk') {
+    out.distanceMeters = typeof leg.distance === 'number' ? leg.distance : undefined;
+    if (leg.legGeometry?.points) {
+      out.geometry = decodePolyline(leg.legGeometry.points, leg.legGeometry.precision ?? 7)
+        .map(([x, y]) => [Math.round(x * 1e5) / 1e5, Math.round(y * 1e5) / 1e5] as [number, number]);
     }
-  } catch (err) {
-    console.warn('Live station search fallback to presets:', err);
   }
+  return out;
+}
 
-  return presetMatches;
+function classifyMode(m: string): LegMode {
+  if (m === 'WALK') return 'walk';
+  if (m === 'BUS' || m === 'COACH') return 'bus';
+  if (/RAIL|SUBURBAN|SUBWAY|METRO|TRAM/.test(m)) return 'rail';
+  return 'other';
+}
+
+/** "RE9 (57015)" -> "RE9"; falls back to displayName / mode. */
+function lineName(leg: any): string {
+  const raw: string = leg.routeShortName || leg.displayName || leg.tripShortName || '';
+  const cleaned = raw.replace(/\s*\(\d+\)\s*$/, '').trim();
+  return cleaned || leg.mode;
+}
+
+async function fetchJsonWithRetry(url: string, retries = 2): Promise<any> {
+  let lastErr: unknown;
+  for (let attempt = 0; attempt <= retries; attempt++) {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), TIMEOUT_MS);
+    try {
+      const res = await fetch(url, { signal: controller.signal, headers: { Accept: 'application/json' } });
+      if (res.ok) return await res.json();
+      // Client errors (except rate limiting) won't get better with a retry
+      if (res.status !== 429 && res.status < 500) {
+        throw Object.assign(new Error(`Transitous returned HTTP ${res.status}`), { fatal: true });
+      }
+      lastErr = new Error(`Transitous returned HTTP ${res.status}`);
+    } catch (err: any) {
+      if (err?.fatal) throw err;
+      lastErr = err?.name === 'AbortError' ? new Error('Transitous request timed out') : err;
+    } finally {
+      clearTimeout(timer);
+    }
+    if (attempt < retries) await new Promise(r => setTimeout(r, 1000 * 2 ** attempt));
+  }
+  throw lastErr instanceof Error ? lastErr : new Error('Transitous request failed');
 }

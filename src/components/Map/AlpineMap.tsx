@@ -1,31 +1,43 @@
 import React, { useEffect, useRef, useState } from 'react';
 import maplibregl from 'maplibre-gl';
 import 'maplibre-gl/dist/maplibre-gl.css';
-import { SkiTour, AvalancheRegion, MasterStation } from '../../types';
-import { getAllMasterStations } from '../../data/trainLines';
+import { SkiTour, AvalancheRegion, Place, Journey, sacCategory } from '../../types';
 import { EAWS_COLORS } from '../../data/avalancheData';
-import { Eye, EyeOff, ShieldAlert, Footprints } from 'lucide-react';
+import { Eye, EyeOff, ShieldAlert } from 'lucide-react';
 
 interface AlpineMapProps {
   tours: SkiTour[];
   selectedTour: SkiTour | null;
+  selectedJourney?: Journey; // best Transitous journey of the selected tour (from the snapshot)
   onSelectTour: (tour: SkiTour) => void;
   avalancheRegions: AvalancheRegion[];
-  originStation: MasterStation;
+  origin: Place;
 }
 
 type BaseMapStyle = 'topo' | 'osm' | 'satellite';
 
+const EMPTY: GeoJSON.FeatureCollection = { type: 'FeatureCollection', features: [] };
+
+/** Final walk geometry (last stop -> trailhead) of a journey, if Transitous returned one. */
+function finalWalkGeometry(journey?: Journey): [number, number][] | null {
+  if (!journey) return null;
+  const last = journey.legs[journey.legs.length - 1];
+  return last && last.mode === 'walk' && last.geometry && last.geometry.length > 1 ? last.geometry : null;
+}
+
 export const AlpineMap: React.FC<AlpineMapProps> = ({
   tours,
   selectedTour,
+  selectedJourney,
   onSelectTour,
   avalancheRegions,
-  originStation
+  origin
 }) => {
   const mapContainer = useRef<HTMLDivElement>(null);
   const mapRef = useRef<maplibregl.Map | null>(null);
   const markersRef = useRef<maplibregl.Marker[]>([]);
+  const selectionRef = useRef<{ tour: SkiTour | null; journey?: Journey }>({ tour: selectedTour, journey: selectedJourney });
+  selectionRef.current = { tour: selectedTour, journey: selectedJourney };
 
   const [showAvalancheLayer, setShowAvalancheLayer] = useState(true);
   const [baseStyle, setBaseStyle] = useState<BaseMapStyle>('topo');
@@ -51,7 +63,7 @@ export const AlpineMap: React.FC<AlpineMapProps> = ({
     map.on('load', () => {
       addAvalancheLayers(map, avalancheRegions);
       addActiveTrackLayers(map);
-      updateSelectedTourTrack(selectedTour);
+      updateSelectedTourTrack();
     });
 
     mapRef.current = map;
@@ -71,7 +83,7 @@ export const AlpineMap: React.FC<AlpineMapProps> = ({
     map.once('style.load', () => {
       addAvalancheLayers(map, avalancheRegions);
       addActiveTrackLayers(map);
-      updateSelectedTourTrack(selectedTour);
+      updateSelectedTourTrack();
     });
   }, [baseStyle]);
 
@@ -229,67 +241,37 @@ export const AlpineMap: React.FC<AlpineMapProps> = ({
     }
   };
 
-  // Update selected tour track
-  const updateSelectedTourTrack = (tour: SkiTour | null) => {
+  // Update selected tour track + final walk (geometry straight from Transitous)
+  const updateSelectedTourTrack = () => {
     const map = mapRef.current;
     if (!map || !map.getSource('active-tour-track')) return;
+    const { tour, journey } = selectionRef.current;
 
-    if (!tour || !tour.gpxTrackCoordinates || tour.gpxTrackCoordinates.length === 0) {
-      (map.getSource('active-tour-track') as maplibregl.GeoJSONSource).setData({
-        type: 'FeatureCollection',
-        features: []
-      });
-      if (map.getSource('active-walk-track')) {
-        (map.getSource('active-walk-track') as maplibregl.GeoJSONSource).setData({
-          type: 'FeatureCollection',
-          features: []
-        });
-      }
+    const trackSource = map.getSource('active-tour-track') as maplibregl.GeoJSONSource;
+    const walkSource = map.getSource('active-walk-track') as maplibregl.GeoJSONSource | undefined;
+
+    if (!tour) {
+      trackSource.setData(EMPTY);
+      walkSource?.setData(EMPTY);
       return;
     }
 
-    // Highlight GPX ski tour track
-    (map.getSource('active-tour-track') as maplibregl.GeoJSONSource).setData({
+    trackSource.setData({
       type: 'FeatureCollection',
-      features: [
-        {
-          type: 'Feature',
-          properties: { name: tour.name },
-          geometry: {
-            type: 'LineString',
-            coordinates: tour.gpxTrackCoordinates
-          }
-        }
-      ]
+      features: [{ type: 'Feature', properties: {}, geometry: { type: 'LineString', coordinates: tour.track } }]
     });
 
-    // Find destination station coordinates to draw walk connection
-    const allStations = getAllMasterStations();
-    const destStation = allStations.find(s =>
-      s.name === tour.transit.destinationStation ||
-      s.cleanDbName === tour.transit.cleanDbStationName
+    const walk = finalWalkGeometry(journey);
+    walkSource?.setData(
+      walk
+        ? { type: 'FeatureCollection', features: [{ type: 'Feature', properties: {}, geometry: { type: 'LineString', coordinates: walk } }] }
+        : EMPTY
     );
-
-    if (destStation && map.getSource('active-walk-track')) {
-      (map.getSource('active-walk-track') as maplibregl.GeoJSONSource).setData({
-        type: 'FeatureCollection',
-        features: [
-          {
-            type: 'Feature',
-            properties: { name: 'Fußweg zum Einstieg' },
-            geometry: {
-              type: 'LineString',
-              coordinates: [destStation.coordinates, tour.coordinates.trailhead]
-            }
-          }
-        ]
-      });
-    }
   };
 
   useEffect(() => {
-    updateSelectedTourTrack(selectedTour);
-  }, [selectedTour]);
+    updateSelectedTourTrack();
+  }, [selectedTour, selectedJourney]);
 
   // Update avalanche layer visibility toggle
   useEffect(() => {
@@ -304,116 +286,83 @@ export const AlpineMap: React.FC<AlpineMapProps> = ({
     }
   }, [showAvalancheLayer]);
 
-  // Render Tour Markers & Origin Pin
+  // Markers: origin, summits, and for the selected tour the last stop + trailhead
   useEffect(() => {
     const map = mapRef.current;
     if (!map) return;
 
-    // Clear previous markers
     markersRef.current.forEach(m => m.remove());
     markersRef.current = [];
 
-    // Origin Station Pin
+    const add = (el: HTMLElement, lngLat: [number, number]) => {
+      markersRef.current.push(new maplibregl.Marker({ element: el }).setLngLat(lngLat).addTo(map));
+    };
+
     const originEl = document.createElement('div');
-    originEl.className = 'flex flex-col items-center cursor-pointer group z-20';
+    originEl.className = 'flex flex-col items-center z-20';
     originEl.innerHTML = `
-      <div class="px-2.5 py-1 bg-red-600 text-white font-bold text-xs rounded-full shadow-lg border-2 border-white flex items-center space-x-1">
-        <span>📍 Start: ${originStation.name}</span>
-      </div>
+      <div class="px-2.5 py-1 bg-red-600 text-white font-bold text-xs rounded-full shadow-lg border-2 border-white"></div>
       <div class="w-2.5 h-2.5 bg-red-600 rotate-45 -mt-1 shadow-sm"></div>
     `;
-    const originMarker = new maplibregl.Marker({ element: originEl })
-      .setLngLat(originStation.coordinates)
-      .addTo(map);
-    markersRef.current.push(originMarker);
+    (originEl.firstElementChild as HTMLElement).textContent = `📍 Start: ${origin.name}`;
+    add(originEl, origin.coordinates);
 
-    // Selected Tour Destination Station Pin (if a tour is active)
     if (selectedTour) {
-      const allStations = getAllMasterStations();
-      const destStation = allStations.find(s =>
-        s.name === selectedTour.transit.destinationStation ||
-        s.cleanDbName === selectedTour.transit.cleanDbStationName
-      );
-
-      if (destStation) {
-        const destEl = document.createElement('div');
-        destEl.className = 'flex flex-col items-center cursor-pointer z-25';
-        destEl.innerHTML = `
-          <div class="px-2 py-0.5 bg-sky-700 text-white font-bold text-[11px] rounded-full shadow-md border border-white flex items-center space-x-1">
-            <span>🚆 Ziel: ${destStation.name}</span>
-          </div>
-          <div class="w-2 h-2 bg-sky-700 rotate-45 -mt-1 shadow-xs"></div>
+      const walk = finalWalkGeometry(selectedJourney);
+      if (walk && selectedJourney?.lastStopName) {
+        const stopEl = document.createElement('div');
+        stopEl.className = 'flex flex-col items-center z-25';
+        stopEl.innerHTML = `
+          <div class="px-2 py-0.5 bg-sky-700 text-white font-bold text-[11px] rounded-full shadow-md border border-white"></div>
+          <div class="w-2 h-2 bg-sky-700 rotate-45 -mt-1"></div>
         `;
-        const destMarker = new maplibregl.Marker({ element: destEl })
-          .setLngLat(destStation.coordinates)
-          .addTo(map);
-        markersRef.current.push(destMarker);
-
-        // Trailhead start pin
-        const thEl = document.createElement('div');
-        thEl.className = 'w-3.5 h-3.5 bg-emerald-600 border-2 border-white rounded-full shadow-md';
-        thEl.title = `Einstieg: ${selectedTour.name}`;
-        const thMarker = new maplibregl.Marker({ element: thEl })
-          .setLngLat(selectedTour.coordinates.trailhead)
-          .addTo(map);
-        markersRef.current.push(thMarker);
+        (stopEl.firstElementChild as HTMLElement).textContent = `🚏 Ausstieg: ${selectedJourney.lastStopName}`;
+        add(stopEl, walk[0]);
       }
+      const thEl = document.createElement('div');
+      thEl.className = 'w-3.5 h-3.5 bg-emerald-600 border-2 border-white rounded-full shadow-md';
+      thEl.title = 'Einstieg (GPX-Start)';
+      add(thEl, selectedTour.trailhead);
     }
 
-    // Tour Summit Markers
     tours.forEach(tour => {
       const isSelected = selectedTour?.id === tour.id;
       const el = document.createElement('div');
-      el.className = `cursor-pointer transition-all duration-200 transform ${
-        isSelected ? 'scale-125 z-30' : 'hover:scale-110 z-10'
-      }`;
-
-      const badgeColor = tour.isPiste 
-        ? 'bg-amber-500 border-amber-200' 
-        : tour.difficultyCategory === 'L' 
+      el.className = `cursor-pointer transition-transform duration-200 ${isSelected ? 'scale-125 z-30' : 'hover:scale-110 z-10'}`;
+      const cat = sacCategory(tour.difficulty);
+      const badgeColor = tour.isPiste
+        ? 'bg-amber-500 border-amber-200'
+        : cat === 'L'
         ? 'bg-emerald-600 border-emerald-200'
-        : tour.difficultyCategory === 'WS'
+        : cat === 'WS'
         ? 'bg-blue-600 border-blue-200'
         : 'bg-rose-600 border-rose-200';
-
       el.innerHTML = `
         <div class="flex flex-col items-center">
           <div class="flex items-center space-x-1 px-2 py-0.5 rounded-full text-[11px] font-semibold text-white shadow-md border ${badgeColor}">
-            <span>${tour.name}</span>
+            <span data-name></span>
             <span class="text-[9px] opacity-90">${tour.peakElevation}m</span>
           </div>
           <div class="w-2 h-2 ${badgeColor.split(' ')[0]} rotate-45 -mt-1 shadow-sm"></div>
         </div>
       `;
-
-      el.addEventListener('click', () => {
-        onSelectTour(tour);
-        map.flyTo({
-          center: tour.coordinates.summit,
-          zoom: Math.max(map.getZoom(), 11.5),
-          duration: 900
-        });
-      });
-
-      const marker = new maplibregl.Marker({ element: el })
-        .setLngLat(tour.coordinates.summit)
-        .addTo(map);
-
-      markersRef.current.push(marker);
+      (el.querySelector('[data-name]') as HTMLElement).textContent = tour.peakName;
+      el.addEventListener('click', () => onSelectTour(tour));
+      add(el, tour.summit);
     });
-  }, [tours, selectedTour, originStation]);
+  }, [tours, selectedTour, selectedJourney, origin]);
 
-  // Fly to selected tour
+  // Fit the view to the selected tour (track + final walk)
   useEffect(() => {
     const map = mapRef.current;
     if (!map || !selectedTour) return;
-
-    map.flyTo({
-      center: selectedTour.coordinates.summit,
-      zoom: 11.5,
-      duration: 800
-    });
-  }, [selectedTour]);
+    const pts = [...selectedTour.track, ...(finalWalkGeometry(selectedJourney) ?? [])];
+    const bounds = pts.reduce(
+      (b, p) => b.extend(p as [number, number]),
+      new maplibregl.LngLatBounds(pts[0] as [number, number], pts[0] as [number, number])
+    );
+    map.fitBounds(bounds, { padding: 60, maxZoom: 14, duration: 800 });
+  }, [selectedTour?.id, selectedJourney]);
 
   return (
     <div className="relative w-full h-full overflow-hidden select-none">

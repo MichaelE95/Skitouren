@@ -1,478 +1,217 @@
-import React, { useState } from 'react';
-import { parseGpxString, ParsedGpxResult } from '../../utils/gpxParser';
-import { findClosestStation, buildStationTransitResult, calculateDistanceMeters, StationMatchResult } from '../../utils/stationMatcher';
-import { getAllMasterStations, searchPublicTransitStops, saveCustomStation, MasterStation } from '../../data/trainLines';
-import { SkiTour, SACGrade, SACCategory } from '../../types';
-import { saveCustomTour, saveUserTourMeta } from '../../data/userMeta';
-import {
-  X,
-  Upload,
-  FileCheck,
-  Mountain,
-  Train,
-  Star,
-  CheckCircle,
-  AlertCircle,
-  Footprints,
-  Search,
-  Plus
-} from 'lucide-react';
+import React, { useRef, useState } from 'react';
+import { SkiTour, SAC_GRADES, SACGrade } from '../../types';
+import { parseGpxString, ParsedGpxResult, slugify } from '../../utils/gpxParser';
+import { lookupPeak } from '../../services/peakLookup';
+import { X, Upload, Loader2, AlertTriangle, CheckCircle2, Save } from 'lucide-react';
 
 interface AddTourModalProps {
   isOpen: boolean;
+  existingIds: string[];
   onClose: () => void;
-  originStation: MasterStation;
-  onTourAdded: (tour: SkiTour) => void;
+  /** Persists the tour + original GPX; resolves when saved. */
+  onSave: (tour: SkiTour, gpxText: string) => Promise<void>;
 }
 
-export const AddTourModal: React.FC<AddTourModalProps> = ({
-  isOpen,
-  onClose,
-  originStation,
-  onTourAdded
-}) => {
-  const [gpxResult, setGpxResult] = useState<ParsedGpxResult | null>(null);
-  const [gpxFileName, setGpxFileName] = useState<string>('');
-  const [skitourenguruUrl, setSkitourenguruUrl] = useState<string>('');
-  const [customName, setCustomName] = useState<string>('');
-  const [difficulty, setDifficulty] = useState<SACGrade>('WS');
-  const [isPiste, setIsPiste] = useState<boolean>(false);
-  const [selectedStation, setSelectedStation] = useState<MasterStation | null>(null);
-  const [matchedTransit, setMatchedTransit] = useState<StationMatchResult | null>(null);
-  const [userRating, setUserRating] = useState<number | null>(null);
-  const [userComment, setUserComment] = useState<string>('');
-  const [errorMsg, setErrorMsg] = useState<string | null>(null);
+/**
+ * Only the GPX is required. Metrics come from the GPX; peak name and Gebirgsgruppe
+ * from OSM/Wikidata (editable, with warnings if missing); the rest is entered here.
+ */
+export const AddTourModal: React.FC<AddTourModalProps> = ({ isOpen, existingIds, onClose, onSave }) => {
+  const [gpxText, setGpxText] = useState<string | null>(null);
+  const [fileName, setFileName] = useState('');
+  const [parsed, setParsed] = useState<ParsedGpxResult | null>(null);
+  const [parseError, setParseError] = useState<string | null>(null);
+  const [lookupBusy, setLookupBusy] = useState(false);
+  const [warnings, setWarnings] = useState<string[]>([]);
 
-  // Station search / filter
-  const [stationSearchQuery, setStationSearchQuery] = useState<string>('');
-  const [stationSearchResults, setStationSearchResults] = useState<MasterStation[]>([]);
-  const [isSearchingOnline, setIsSearchingOnline] = useState<boolean>(false);
+  const [peakName, setPeakName] = useState('');
+  const [mountainRange, setMountainRange] = useState('');
+  const [difficulty, setDifficulty] = useState<SACGrade>('WS');
+  const [isPiste, setIsPiste] = useState(false);
+  const [skitourenguruUrl, setSkitourenguruUrl] = useState('');
+  const [notes, setNotes] = useState('');
+
+  const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
+  const fileRef = useRef<HTMLInputElement>(null);
 
   if (!isOpen) return null;
 
-  const allStations = getAllMasterStations();
-
-  // Handle GPX file drop / upload
-  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    setErrorMsg(null);
-    setGpxFileName(file.name);
-    const reader = new FileReader();
-
-    reader.onload = (event) => {
-      try {
-        const text = event.target?.result as string;
-        const parsed = parseGpxString(text, file.name);
-        setGpxResult(parsed);
-        setCustomName(parsed.name);
-
-        // Auto-match nearest station purely based on coordinates
-        const match = findClosestStation(parsed.trailhead);
-        setSelectedStation(match.station);
-        setMatchedTransit(match);
-      } catch (err: any) {
-        setErrorMsg(err.message || 'Fehler beim Parsen der GPX-Datei.');
-      }
-    };
-
-    reader.readAsText(file);
+  const reset = () => {
+    setGpxText(null); setFileName(''); setParsed(null); setParseError(null); setWarnings([]);
+    setPeakName(''); setMountainRange(''); setDifficulty('WS'); setIsPiste(false);
+    setSkitourenguruUrl(''); setNotes(''); setSaveError(null);
   };
 
-  // Station selection changed
-  const handleSelectStation = (station: MasterStation) => {
-    setSelectedStation(station);
-    if (!gpxResult) return;
-    const dist = calculateDistanceMeters(
-      gpxResult.trailhead[1],
-      gpxResult.trailhead[0],
-      station.coordinates[1],
-      station.coordinates[0]
-    );
-    const transit = buildStationTransitResult(station, dist);
-    setMatchedTransit(transit);
-  };
+  const close = () => { reset(); onClose(); };
 
-  // Online stop search for bus or train stops
-  const handleSearchStops = async (q: string) => {
-    setStationSearchQuery(q);
-    if (q.trim().length < 2) {
-      setStationSearchResults([]);
-      return;
-    }
-    setIsSearchingOnline(true);
+  const handleFile = async (file: File) => {
+    reset();
+    setFileName(file.name);
+    const text = await file.text();
+    let result: ParsedGpxResult;
     try {
-      const results = await searchPublicTransitStops(q);
-      setStationSearchResults(results);
-    } catch {
-      setStationSearchResults([]);
-    } finally {
-      setIsSearchingOnline(false);
+      result = parseGpxString(text, file.name);
+    } catch (err) {
+      setParseError(err instanceof Error ? err.message : String(err));
+      return;
     }
+    setGpxText(text);
+    setParsed(result);
+
+    setLookupBusy(true);
+    const lookup = await lookupPeak(result.summit);
+    setLookupBusy(false);
+    const w = [...lookup.warnings];
+    setPeakName(lookup.peakName ?? '');
+    setMountainRange(lookup.mountainRange ?? '');
+    if (!lookup.peakName) w.push(`Name in the GPX file: "${result.nameFromFile}" (not used automatically).`);
+    if (lookup.peakEle !== undefined && Math.abs(lookup.peakEle - result.peakElevation) > 60) {
+      w.push(
+        `OSM gives ${lookup.peakEle} m for ${lookup.peakName}, the GPX's highest point is ${result.peakElevation} m. ` +
+        `The track may not reach the summit, or its elevations are imprecise. The GPX value is used.`
+      );
+    }
+    setWarnings(w);
   };
 
-  const handleSave = () => {
-    if (!gpxResult) {
-      setErrorMsg('Bitte zuerst eine GPX-Datei hochladen.');
-      return;
-    }
-    if (!customName.trim()) {
-      setErrorMsg('Bitte einen Namen für die Tour eingeben.');
-      return;
-    }
-
-    const station = selectedStation || findClosestStation(gpxResult.trailhead).station;
-    const walkDist = calculateDistanceMeters(
-      gpxResult.trailhead[1],
-      gpxResult.trailhead[0],
-      station.coordinates[1],
-      station.coordinates[0]
-    );
-    const transitResult = matchedTransit || buildStationTransitResult(station, walkDist);
-
-    const tourId = 'custom-' + customName.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '') + '-' + Date.now().toString(36);
-    const cat: SACCategory = difficulty.startsWith('L') ? 'L' : difficulty.startsWith('WS') ? 'WS' : difficulty.startsWith('ZS') ? 'ZS' : 'S';
-
-    // If new custom station, persist it to station catalog
-    if (station.isCustom) {
-      saveCustomStation(station);
-    }
-
-    const cleanGuruUrl = skitourenguruUrl.trim();
-
-    const newTour: SkiTour = {
-      id: tourId,
-      name: customName.trim(),
-      mountainRange: gpxResult.mountainRange,
-      valley: transitResult.station.name,
-      type: 'day',
-      isPiste,
-      startElevation: gpxResult.startElevation,
-      peakElevation: gpxResult.peakElevation,
-      elevationGain: gpxResult.elevationGain,
-      distanceKm: gpxResult.distanceKm,
-      estimatedTourDurationHours: gpxResult.estimatedDurationHours,
+  const handleSave = async () => {
+    if (!parsed || !gpxText) return;
+    if (!peakName.trim()) { setSaveError('Please enter the peak name.'); return; }
+    let id = slugify(peakName);
+    for (let n = 2; existingIds.includes(id); n++) id = `${slugify(peakName)}-${n}`;
+    const tour: SkiTour = {
+      id,
+      gpxFile: `${id}.gpx`,
+      peakName: peakName.trim(),
+      mountainRange: mountainRange.trim() || null,
+      startElevation: parsed.startElevation,
+      peakElevation: parsed.peakElevation,
+      elevationGain: parsed.elevationGain,
+      distanceKm: parsed.distanceKm,
+      trailhead: parsed.trailhead,
+      summit: parsed.summit,
+      track: parsed.track,
       difficulty,
-      difficultyCategory: cat,
-      coordinates: {
-        trailhead: gpxResult.trailhead,
-        summit: gpxResult.summit
-      },
-      gpxTrackCoordinates: gpxResult.trackCoordinates,
-      transit: {
-        origin: originStation.name,
-        destinationStation: transitResult.station.name,
-        cleanDbStationName: transitResult.cleanDbStationName,
-        destinationIbnr: transitResult.station.ibnr || '8000000',
-        destinationEva: transitResult.station.eva || transitResult.station.ibnr || '8000000',
-        walkingDistanceMeters: transitResult.walkingDistanceMeters,
-        walkingDurationMinutes: transitResult.walkingDurationMinutes,
-        dTicketValidity: transitResult.dTicketValidity,
-        extraCostEuro: transitResult.extraCostEuro
-      },
-      links: {
-        skitourenguruUrl: cleanGuruUrl || undefined
-      },
-      rating: userRating,
-      curatedComment: userComment.trim(),
-      isCustomTour: true
+      isPiste,
+      skitourenguruUrl: skitourenguruUrl.trim() || undefined,
+      rating: null,
+      notes: notes.trim()
     };
-
-    // Save metadata
-    saveUserTourMeta(tourId, {
-      tourId,
-      peakName: customName.trim(),
-      skitourenguruUrl: cleanGuruUrl || undefined,
-      rating: userRating,
-      comment: userComment.trim()
-    });
-
-    // Save custom tour
-    saveCustomTour(newTour);
-    onTourAdded(newTour);
-    onClose();
+    setSaving(true);
+    setSaveError(null);
+    try {
+      await onSave(tour, gpxText);
+      close();
+    } catch (err) {
+      setSaveError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setSaving(false);
+    }
   };
 
   return (
-    <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 overflow-y-auto">
-      <div className="bg-white rounded-2xl shadow-2xl max-w-xl w-full border border-slate-200 overflow-hidden my-8 text-slate-800">
-        {/* Modal Header */}
-        <div className="px-5 py-4 bg-slate-900 text-white flex items-center justify-between border-b border-slate-800">
-          <div className="flex items-center space-x-2">
-            <Mountain className="w-5 h-5 text-alpine-400" />
-            <h3 className="font-bold text-base">Neue Skitour importieren</h3>
-          </div>
-          <button
-            onClick={onClose}
-            className="p-1 rounded-full text-slate-400 hover:text-white hover:bg-slate-800 transition-colors"
-          >
-            <X className="w-5 h-5" />
-          </button>
+    <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4" onClick={close}>
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[90vh] flex flex-col" onClick={e => e.stopPropagation()}>
+        <div className="p-4 border-b border-slate-200 flex items-center justify-between">
+          <h2 className="font-bold text-slate-900">Neue Tour aus GPX</h2>
+          <button onClick={close} className="p-1 text-slate-400 hover:text-slate-700"><X className="w-5 h-5" /></button>
         </div>
 
-        {/* Modal Body */}
-        <div className="p-5 space-y-4 max-h-[80vh] overflow-y-auto text-xs">
-          {errorMsg && (
-            <div className="p-3 bg-rose-50 border border-rose-200 text-rose-700 rounded-xl flex items-center space-x-2">
-              <AlertCircle className="w-4 h-4 shrink-0" />
-              <span>{errorMsg}</span>
+        <div className="flex-1 overflow-y-auto p-4 space-y-4 text-xs">
+          {/* GPX drop zone */}
+          <div
+            onClick={() => fileRef.current?.click()}
+            onDragOver={e => e.preventDefault()}
+            onDrop={e => { e.preventDefault(); const f = e.dataTransfer.files[0]; if (f) handleFile(f); }}
+            className="border-2 border-dashed border-slate-300 hover:border-alpine-500 rounded-xl p-5 text-center cursor-pointer transition-colors"
+          >
+            <Upload className="w-6 h-6 text-slate-400 mx-auto mb-1.5" />
+            <div className="font-semibold text-slate-700">{fileName || 'GPX-Datei hierher ziehen oder klicken'}</div>
+            <div className="text-slate-400 mt-0.5">Required. The first track point is the trailhead.</div>
+            <input ref={fileRef} type="file" accept=".gpx,application/gpx+xml" className="hidden"
+              onChange={e => { const f = e.target.files?.[0]; if (f) handleFile(f); e.target.value = ''; }} />
+          </div>
+
+          {parseError && (
+            <div className="p-2.5 rounded-lg bg-rose-50 border border-rose-200 text-rose-700 flex items-start space-x-1.5">
+              <AlertTriangle className="w-4 h-4 shrink-0" /><span>{parseError}</span>
             </div>
           )}
 
-          {/* Step 1: GPX Upload */}
-          <div className="space-y-1.5">
-            <label className="font-bold text-slate-700 block">1. GPX-Datei hochladen (Single Source of Truth):</label>
-            <label className={`border-2 border-dashed rounded-2xl p-4 flex flex-col items-center justify-center cursor-pointer transition-all ${
-              gpxResult ? 'border-emerald-400 bg-emerald-50/40' : 'border-slate-300 hover:border-alpine-400 bg-slate-50'
-            }`}>
-              <input
-                type="file"
-                accept=".gpx"
-                onChange={handleFileUpload}
-                className="hidden"
-              />
-              {gpxResult ? (
-                <div className="flex items-center space-x-2 text-emerald-800 font-bold">
-                  <FileCheck className="w-5 h-5 text-emerald-600" />
-                  <span>{gpxFileName} erfolgreich geladen!</span>
+          {parsed && (
+            <>
+              <div>
+                <div className="text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1">Aus dem GPX</div>
+                <div className="grid grid-cols-4 gap-1.5 bg-slate-50 p-2.5 rounded-xl text-center border border-slate-100">
+                  <M label="Start" value={`${parsed.startElevation} m`} />
+                  <M label="Gipfel" value={`${parsed.peakElevation} m`} />
+                  <M label="Aufstieg" value={`+${parsed.elevationGain} hm`} />
+                  <M label="Distanz" value={`${parsed.distanceKm} km`} />
                 </div>
-              ) : (
-                <div className="flex flex-col items-center space-y-1 text-slate-500">
-                  <Upload className="w-6 h-6 text-slate-400" />
-                  <span className="font-semibold text-slate-700">GPX-Datei auswählen oder hierher ziehen</span>
-                  <span className="text-[10px] text-slate-400">Extrahiert automatisch Höhenprofil, Gehzeit & Distanz</span>
-                </div>
-              )}
-            </label>
-          </div>
-
-          {/* Extracted Metrics Preview */}
-          {gpxResult && (
-            <div className="p-3 bg-slate-50 rounded-xl border border-slate-200 space-y-2">
-              <div className="font-bold text-slate-800 flex items-center justify-between">
-                <span>Automatisch aus GPX ermittelt:</span>
-                <span className="text-alpine-700 font-bold bg-alpine-50 px-2 py-0.5 rounded text-[11px] border border-alpine-200">
-                  {gpxResult.mountainRange}
-                </span>
-              </div>
-              <div className="grid grid-cols-4 gap-1.5 text-center">
-                <div className="bg-white p-2 rounded-lg border border-slate-100">
-                  <div className="text-[10px] text-slate-400">Gipfel</div>
-                  <div className="font-bold text-slate-800">{gpxResult.peakElevation} m</div>
-                </div>
-                <div className="bg-white p-2 rounded-lg border border-slate-100">
-                  <div className="text-[10px] text-slate-400">Aufstieg</div>
-                  <div className="font-bold text-emerald-700">+{gpxResult.elevationGain} hm</div>
-                </div>
-                <div className="bg-white p-2 rounded-lg border border-slate-100">
-                  <div className="text-[10px] text-slate-400">Strecke</div>
-                  <div className="font-bold text-slate-800">{gpxResult.distanceKm} km</div>
-                </div>
-                <div className="bg-white p-2 rounded-lg border border-slate-100">
-                  <div className="text-[10px] text-slate-400">Tourdauer</div>
-                  <div className="font-bold text-slate-800">{gpxResult.estimatedDurationHours} h</div>
+                <div className="mt-1 text-[10px] text-slate-400">
+                  Trailhead {parsed.trailhead[1].toFixed(5)}, {parsed.trailhead[0].toFixed(5)}
                 </div>
               </div>
-            </div>
-          )}
 
-          {/* Step 2: Tour Name */}
-          <div className="space-y-1">
-            <label className="font-bold text-slate-700">2. Gipfel / Tourenname:</label>
-            <input
-              type="text"
-              value={customName}
-              onChange={(e) => setCustomName(e.target.value)}
-              placeholder="z.B. Bleispitze"
-              className="w-full p-2.5 bg-white rounded-xl border border-slate-300 text-xs font-semibold"
-            />
-          </div>
-
-          {/* Step 3: Difficulty & Piste */}
-          <div className="grid grid-cols-2 gap-3">
-            <div className="space-y-1">
-              <label className="font-bold text-slate-700">SAC-Schwierigkeit:</label>
-              <select
-                value={difficulty}
-                onChange={(e) => setDifficulty(e.target.value as SACGrade)}
-                className="w-full p-2 bg-white rounded-xl border border-slate-300 text-xs font-semibold"
-              >
-                <option value="L">L (Leicht)</option>
-                <option value="L+">L+</option>
-                <option value="WS-">WS-</option>
-                <option value="WS">WS (Wenig schwierig)</option>
-                <option value="WS+">WS+</option>
-                <option value="ZS-">ZS-</option>
-                <option value="ZS">ZS (Ziemlich schwierig)</option>
-                <option value="ZS+">ZS+</option>
-                <option value="S-">S-</option>
-                <option value="S">S (Schwierig)</option>
-              </select>
-            </div>
-            <div className="pt-4">
-              <label className="flex items-center space-x-2 cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={isPiste}
-                  onChange={(e) => setIsPiste(e.target.checked)}
-                  className="rounded text-alpine-600 focus:ring-alpine-500 w-4 h-4"
-                />
-                <span className="font-bold text-slate-700">Pistenskitour (Skigebiet)</span>
-              </label>
-            </div>
-          </div>
-
-          {/* Step 4: Nearest Public Transit Destination (Unified Station Catalog) */}
-          <div className="p-3 bg-slate-50 rounded-xl border border-slate-200 space-y-2.5">
-            <div className="font-bold text-slate-800 flex items-center justify-between">
-              <span className="flex items-center space-x-1.5">
-                <Train className="w-4 h-4 text-alpine-600" />
-                <span>ÖPNV-Zielbahnhof / Haltestelle:</span>
-              </span>
-              {selectedStation && (
-                <span className="text-emerald-700 font-bold bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
-                  {selectedStation.name}
-                </span>
-              )}
-            </div>
-
-            {/* Station Picker Dropdown from Unified Database */}
-            <select
-              value={selectedStation?.id || ''}
-              onChange={(e) => {
-                const found = allStations.find(s => s.id === e.target.value);
-                if (found) handleSelectStation(found);
-              }}
-              className="w-full p-2 bg-white rounded-lg border border-slate-300 text-xs font-semibold"
-            >
-              {allStations.map(st => (
-                <option key={st.id} value={st.id}>
-                  {st.name} {st.type === 'bus' ? '(Bus)' : '(Bahn)'}
-                </option>
-              ))}
-            </select>
-
-            {/* Optional Online Search for any bus or train stop */}
-            <div className="space-y-1 pt-1">
-              <label className="text-[11px] text-slate-500 font-medium">Andere Haltestelle / Busstation online suchen:</label>
-              <div className="relative">
-                <Search className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-2.5" />
-                <input
-                  type="text"
-                  value={stationSearchQuery}
-                  onChange={(e) => handleSearchStops(e.target.value)}
-                  placeholder="z.B. Baad, Tannheim, Oberjoch..."
-                  className="w-full pl-8 pr-3 py-1.5 bg-white rounded-lg border border-slate-300 text-xs"
-                />
-              </div>
-
-              {stationSearchResults.length > 0 && (
-                <div className="max-h-28 overflow-y-auto bg-white rounded-lg border border-slate-200 shadow-sm mt-1 divide-y divide-slate-100">
-                  {stationSearchResults.map(st => (
-                    <button
-                      key={st.id}
-                      type="button"
-                      onClick={() => {
-                        handleSelectStation(st);
-                        setStationSearchResults([]);
-                        setStationSearchQuery('');
-                      }}
-                      className="w-full text-left p-1.5 hover:bg-slate-50 flex items-center justify-between text-xs"
-                    >
-                      <span className="font-semibold text-slate-800">{st.name}</span>
-                      <span className="text-[10px] text-slate-400">{st.type === 'bus' ? 'Bus' : 'Bahn'}</span>
-                    </button>
+              {lookupBusy ? (
+                <div className="flex items-center space-x-1.5 text-alpine-600">
+                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                  <span>Looking up the peak (OpenStreetMap, Wikidata)…</span>
+                </div>
+              ) : warnings.length > 0 ? (
+                <div className="p-2.5 rounded-lg bg-amber-50 border border-amber-200 text-amber-800 space-y-1">
+                  {warnings.map((w, i) => (
+                    <div key={i} className="flex items-start space-x-1.5"><AlertTriangle className="w-3.5 h-3.5 shrink-0 mt-0.5" /><span>{w}</span></div>
                   ))}
                 </div>
+              ) : (
+                <div className="flex items-center space-x-1.5 text-emerald-700">
+                  <CheckCircle2 className="w-3.5 h-3.5" /><span>Peak and Gebirgsgruppe found (OSM + Wikidata).</span>
+                </div>
               )}
-            </div>
 
-            {/* Calculated walking connection */}
-            {matchedTransit && (
-              <div className="flex items-center space-x-2 text-slate-600 text-[11px] pt-1 border-t border-slate-200">
-                <Footprints className="w-3.5 h-3.5 text-slate-500" />
-                <span>
-                  Berechneter Fußweg zum Startpunkt: <strong>ca. {matchedTransit.walkingDurationMinutes} min</strong> ({matchedTransit.walkingDistanceMeters} m)
-                </span>
+              <div className="space-y-2.5">
+                <F label="Gipfel *">
+                  <input className="input" value={peakName} onChange={e => setPeakName(e.target.value)} />
+                </F>
+                <F label="Gebirgsgruppe">
+                  <input className="input" value={mountainRange} onChange={e => setMountainRange(e.target.value)} placeholder="z. B. Wettersteingebirge" />
+                </F>
+                <div className="grid grid-cols-2 gap-2">
+                  <F label="SAC-Schwierigkeit *">
+                    <select className="input" value={difficulty} onChange={e => setDifficulty(e.target.value as SACGrade)}>
+                      {SAC_GRADES.map(g => <option key={g} value={g}>{g}</option>)}
+                    </select>
+                  </F>
+                  <F label="Pistenskitour">
+                    <label className="flex items-center space-x-2 h-[30px]">
+                      <input type="checkbox" checked={isPiste} onChange={e => setIsPiste(e.target.checked)} />
+                      <span>Ja</span>
+                    </label>
+                  </F>
+                </div>
+                <F label="Skitourenguru-Link (optional)">
+                  <input className="input" value={skitourenguruUrl} onChange={e => setSkitourenguruUrl(e.target.value)} placeholder="https://www.skitourenguru.ch/…" />
+                </F>
+                <F label="Notizen (optional)">
+                  <textarea className="input" rows={3} value={notes} onChange={e => setNotes(e.target.value)} />
+                </F>
               </div>
-            )}
-          </div>
+            </>
+          )}
 
-          {/* Step 5: Optional Skitourenguru URL */}
-          <div className="space-y-1">
-            <label className="font-bold text-slate-700 flex items-center justify-between">
-              <span>Skitourenguru URL (optional):</span>
-              <span className="text-[10px] text-slate-400">Kann freigelassen werden</span>
-            </label>
-            <input
-              type="url"
-              value={skitourenguruUrl}
-              onChange={(e) => setSkitourenguruUrl(e.target.value)}
-              placeholder="https://www.skitourenguru.ch/?id=..."
-              className="w-full p-2 bg-white rounded-xl border border-slate-300 text-xs"
-            />
-          </div>
-
-          {/* Step 6: User Rating & Comment */}
-          <div className="space-y-2 pt-2 border-t border-slate-200">
-            <div className="flex items-center justify-between">
-              <label className="font-bold text-slate-700">Deine Bewertung (optional):</label>
-              <div className="flex items-center space-x-1">
-                {[1, 2, 3, 4, 5].map(star => (
-                  <button
-                    key={star}
-                    type="button"
-                    onClick={() => setUserRating(userRating === star ? null : star)}
-                    className="p-0.5 text-amber-400 hover:scale-125 transition-transform"
-                    title={`${star} Sterne`}
-                  >
-                    <Star
-                      className={`w-5 h-5 ${
-                        userRating && userRating >= star ? 'fill-amber-400' : 'text-slate-300'
-                      }`}
-                    />
-                  </button>
-                ))}
-                {userRating && (
-                  <button
-                    type="button"
-                    onClick={() => setUserRating(null)}
-                    className="text-[10px] text-slate-400 hover:text-slate-600 ml-1"
-                  >
-                    Löschen
-                  </button>
-                )}
-              </div>
-            </div>
-
-            <div className="space-y-1">
-              <label className="font-bold text-slate-700">Persönliche Notizen & Tipps:</label>
-              <textarea
-                value={userComment}
-                onChange={(e) => setUserComment(e.target.value)}
-                placeholder="Eigene Eindrücke, Schneeverhältnisse, Ausrüstungstipps..."
-                rows={2}
-                className="w-full p-2 bg-white rounded-xl border border-slate-300 text-xs"
-              />
-            </div>
-          </div>
+          {saveError && <div className="p-2 rounded-lg bg-rose-50 border border-rose-200 text-rose-700">{saveError}</div>}
         </div>
 
-        {/* Modal Footer */}
-        <div className="px-5 py-3.5 bg-slate-50 border-t border-slate-200 flex items-center justify-end space-x-2">
-          <button
-            onClick={onClose}
-            className="px-4 py-2 bg-white hover:bg-slate-100 text-slate-700 rounded-xl font-semibold border border-slate-300"
-          >
-            Abbrechen
-          </button>
+        <div className="p-4 border-t border-slate-200 flex justify-end space-x-2">
+          <button onClick={close} className="px-4 py-2 rounded-xl border border-slate-300 text-xs font-semibold">Abbrechen</button>
           <button
             onClick={handleSave}
-            disabled={!gpxResult}
-            className="px-5 py-2 bg-alpine-600 hover:bg-alpine-700 disabled:opacity-50 text-white rounded-xl font-bold shadow-xs transition-colors flex items-center space-x-1.5"
+            disabled={!parsed || lookupBusy || saving}
+            className="px-4 py-2 rounded-xl bg-alpine-600 hover:bg-alpine-700 text-white text-xs font-bold flex items-center space-x-1.5 disabled:opacity-50"
           >
-            <CheckCircle className="w-4 h-4" />
+            {saving ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5" />}
             <span>Tour speichern</span>
           </button>
         </div>
@@ -480,3 +219,17 @@ export const AddTourModal: React.FC<AddTourModalProps> = ({
     </div>
   );
 };
+
+const F: React.FC<{ label: string; children: React.ReactNode }> = ({ label, children }) => (
+  <label className="block">
+    <span className="block text-[11px] font-semibold text-slate-600 mb-0.5">{label}</span>
+    {children}
+  </label>
+);
+
+const M: React.FC<{ label: string; value: string }> = ({ label, value }) => (
+  <div>
+    <div className="text-[10px] text-slate-500 font-medium">{label}</div>
+    <div className="text-xs font-bold text-slate-800">{value}</div>
+  </div>
+);

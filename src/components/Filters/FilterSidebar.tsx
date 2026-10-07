@@ -1,15 +1,13 @@
 import React from 'react';
-import { FilterState, SACCategory, OriginStation } from '../../types';
+import { FilterState, SACCategory, Place, DEFAULT_FILTERS } from '../../types';
 import {
   Search,
-  Train,
   ShieldCheck,
   RotateCcw,
   SlidersHorizontal,
   Star,
   CheckCircle,
-  HelpCircle,
-  MapPin
+  HelpCircle
 } from 'lucide-react';
 
 interface FilterSidebarProps {
@@ -18,7 +16,7 @@ interface FilterSidebarProps {
   totalToursCount: number;
   filteredToursCount: number;
   availableRanges: string[];
-  originStation: OriginStation;
+  origin: Place;
   onCloseMobile?: () => void;
 }
 
@@ -28,7 +26,7 @@ export const FilterSidebar: React.FC<FilterSidebarProps> = ({
   totalToursCount,
   filteredToursCount,
   availableRanges,
-  originStation
+  origin
 }) => {
   const update = (partial: Partial<FilterState>) => {
     onFilterChange({ ...filters, ...partial });
@@ -51,31 +49,16 @@ export const FilterSidebar: React.FC<FilterSidebarProps> = ({
   };
 
   const handleReset = () => {
-    onFilterChange({
-      searchQuery: '',
-      onlyDTicket: false,
-      onlyPiste: false,
-      maxTransitDurationMinutes: 300,
-      maxAvalancheLevel: 4,
-      minElevationGain: 0,
-      maxElevationGain: 2000,
-      selectedDifficulties: [],
-      selectedRanges: [],
-      tourType: 'all',
-      ratingFilter: 'all',
-      sortBy: 'transitTime'
-    });
+    onFilterChange(DEFAULT_FILTERS);
   };
 
-  const hasActiveFilters = 
+  const hasActiveFilters =
     filters.searchQuery !== '' ||
-    filters.onlyDTicket ||
     filters.onlyPiste ||
     filters.maxTransitDurationMinutes < 300 ||
     filters.maxElevationGain < 2000 ||
     filters.selectedDifficulties.length > 0 ||
     filters.selectedRanges.length > 0 ||
-    filters.tourType !== 'all' ||
     filters.ratingFilter !== 'all';
 
   return (
@@ -105,7 +88,7 @@ export const FilterSidebar: React.FC<FilterSidebarProps> = ({
             type="text"
             value={filters.searchQuery}
             onChange={(e) => update({ searchQuery: e.target.value })}
-            placeholder="Gipfel, Tal, Linie (z.B. Baad, RE17)..."
+            placeholder="Gipfel, Gebirgsgruppe, Haltestelle..."
             className="w-full pl-9 pr-3 py-2 text-xs bg-white rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-alpine-500/30 focus:border-alpine-500 transition-all placeholder:text-slate-400"
           />
         </div>
@@ -149,34 +132,11 @@ export const FilterSidebar: React.FC<FilterSidebarProps> = ({
           </div>
         </div>
 
-        {/* Quick Toggles (D-Ticket & Piste) */}
+        {/* Quick Toggle: Piste */}
         <div className="space-y-2">
           <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider block">
             Schnellfilter
           </label>
-
-          {/* Deutschland-Ticket 100% Switch */}
-          <div
-            onClick={() => update({ onlyDTicket: !filters.onlyDTicket })}
-            className={`flex items-center justify-between p-2.5 rounded-xl border cursor-pointer transition-all ${
-              filters.onlyDTicket
-                ? 'bg-emerald-50 border-emerald-300 text-emerald-900 shadow-2xs'
-                : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-50'
-            }`}
-          >
-            <div className="flex items-center space-x-2">
-              <Train className={`w-4 h-4 ${filters.onlyDTicket ? 'text-emerald-600' : 'text-slate-400'}`} />
-              <div>
-                <div className="font-bold text-xs">100% Deutschland-Ticket</div>
-                <div className="text-[10px] text-slate-500">Ohne Bus- oder Auslandsaufpreise</div>
-              </div>
-            </div>
-            <div className={`w-4 h-4 rounded-full border flex items-center justify-center ${
-              filters.onlyDTicket ? 'border-emerald-600 bg-emerald-600 text-white text-[10px]' : 'border-slate-300'
-            }`}>
-              {filters.onlyDTicket && '✓'}
-            </div>
-          </div>
 
           {/* Pistenskitour Switch */}
           <div
@@ -191,7 +151,7 @@ export const FilterSidebar: React.FC<FilterSidebarProps> = ({
               <ShieldCheck className={`w-4 h-4 ${filters.onlyPiste ? 'text-amber-600' : 'text-slate-400'}`} />
               <div>
                 <div className="font-bold text-xs">Nur Pistenskitouren</div>
-                <div className="text-[10px] text-slate-500">Ideal bei Lawinenstufe 3/4 & Nebel</div>
+                <div className="text-[10px] text-slate-500">Ideal bei Lawinenstufe 3/4 &amp; Nebel</div>
               </div>
             </div>
             <div className={`w-4 h-4 rounded-full border flex items-center justify-center ${
@@ -202,11 +162,11 @@ export const FilterSidebar: React.FC<FilterSidebarProps> = ({
           </div>
         </div>
 
-        {/* Max Transit Time Slider */}
+        {/* Max Transit Time Slider (uses the loaded Transitous connections only) */}
         <div className="space-y-1.5">
           <div className="flex items-center justify-between">
             <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">
-              Max. Fahrzeit (ab {originStation.name})
+              Max. Anreise bis Einstieg (ab {origin.name})
             </label>
             <span className="font-bold text-alpine-700 bg-alpine-50 px-2 py-0.5 rounded border border-alpine-200">
               ≤ {Math.floor(filters.maxTransitDurationMinutes / 60)}h {filters.maxTransitDurationMinutes % 60 > 0 ? `${filters.maxTransitDurationMinutes % 60}m` : ''}
@@ -290,32 +250,6 @@ export const FilterSidebar: React.FC<FilterSidebarProps> = ({
           </div>
         </div>
 
-        {/* Tour Type Toggle (Day vs Multi-Day DAV Huts) */}
-        <div className="space-y-1.5">
-          <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider block">
-            Tour-Art & DAV-Hütten
-          </label>
-          <div className="grid grid-cols-3 gap-1 bg-slate-100 p-0.5 rounded-xl">
-            {[
-              { id: 'all', label: 'Alle' },
-              { id: 'day', label: 'Tagestour' },
-              { id: 'multiday', label: 'Mehrtag' }
-            ].map(t => (
-              <button
-                key={t.id}
-                onClick={() => update({ tourType: t.id as any })}
-                className={`py-1.5 rounded-lg text-xs font-semibold transition-colors ${
-                  filters.tourType === t.id
-                    ? 'bg-white text-slate-900 shadow-xs'
-                    : 'text-slate-600 hover:text-slate-900'
-                }`}
-              >
-                {t.label}
-              </button>
-            ))}
-          </div>
-        </div>
-
         {/* Mountain Ranges Multi-select */}
         <div className="space-y-1.5">
           <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider block">
@@ -351,7 +285,7 @@ export const FilterSidebar: React.FC<FilterSidebarProps> = ({
             onChange={(e) => update({ sortBy: e.target.value as any })}
             className="w-full p-2 bg-white rounded-xl border border-slate-300 text-xs font-semibold text-slate-800 focus:outline-none focus:ring-2 focus:ring-alpine-500/30"
           >
-            <option value="transitTime">⏱️ Kürzeste Anreise ab {originStation.name}</option>
+            <option value="transitTime">⏱️ Kürzeste Anreise ab {origin.name}</option>
             <option value="elevationGain">🏔️ Höhenmeter (Aufstieg)</option>
             <option value="rating">★ Bewertung</option>
             <option value="difficulty">🧗 SAC-Schwierigkeit</option>
