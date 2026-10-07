@@ -18,8 +18,11 @@ interface NavbarProps {
   progress: { done: number; total: number } | null; // null = not loading
   isStale: boolean;
   onOpenAddTour: () => void;
-  onExport?: () => void; // hosted site only
-  exportPending?: boolean; // local edits not yet in the repo
+  onExport?: () => void; // hosted: download files; dev: push to GitHub
+  exportPending?: boolean; // local edits not yet in the repo / on GitHub
+  exportBusy?: boolean;
+  exportLabel?: string;
+  exportTitle?: string;
 }
 
 export const Navbar: React.FC<NavbarProps> = ({
@@ -38,7 +41,10 @@ export const Navbar: React.FC<NavbarProps> = ({
   isStale,
   onOpenAddTour,
   onExport,
-  exportPending
+  exportPending,
+  exportBusy,
+  exportLabel,
+  exportTitle
 }) => {
   const isLoading = progress !== null;
 
@@ -114,11 +120,14 @@ export const Navbar: React.FC<NavbarProps> = ({
         {onExport && (
           <button
             onClick={onExport}
-            className={`flex items-center space-x-1 px-2.5 py-1.5 rounded-xl text-xs font-semibold border cursor-pointer ${exportPending ? 'bg-amber-500 hover:bg-amber-400 text-slate-950 border-amber-400' : 'bg-slate-800 hover:bg-slate-700 text-slate-200 border-slate-700'}`}
-            title="Download tours.json and new GPX files to commit them to the repo"
+            disabled={exportBusy}
+            className={`flex items-center space-x-1 px-2.5 py-1.5 rounded-xl text-xs font-semibold border cursor-pointer disabled:cursor-wait ${exportPending ? 'bg-amber-500 hover:bg-amber-400 text-slate-950 border-amber-400' : 'bg-slate-800 hover:bg-slate-700 text-slate-200 border-slate-700'}`}
+            title={exportTitle ?? 'Download tours.json and new GPX files to commit them to the repo'}
           >
-            <Download className="w-3.5 h-3.5 text-slate-400" />
-            <span className="hidden sm:inline">{exportPending ? 'Export (nicht im Repo)' : 'Export'}</span>
+            {exportBusy
+              ? <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+              : <Download className="w-3.5 h-3.5 text-slate-400" />}
+            <span className="hidden sm:inline">{exportLabel ?? (exportPending ? 'Export (nicht im Repo)' : 'Export')}</span>
           </button>
         )}
 

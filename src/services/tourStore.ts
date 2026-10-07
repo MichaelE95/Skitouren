@@ -101,6 +101,31 @@ export function hasOverlayChanges(): boolean {
   return Object.keys(ov.upserts).length > 0 || ov.deleted.length > 0;
 }
 
+export interface RepoStatus {
+  uncommitted: number;
+  unpushed: number;
+  hasUpstream: boolean;
+}
+
+/** Dev only: how many tour changes are not yet committed / pushed. */
+export async function getRepoStatus(): Promise<RepoStatus | null> {
+  if (!IS_DEV) return null;
+  try {
+    const res = await fetch('/__tours/status', { cache: 'no-store' });
+    return res.ok ? await res.json() : null;
+  } catch {
+    return null;
+  }
+}
+
+/** Dev only: commit public/tours/ and push to GitHub (triggers the Pages deploy). */
+export async function publishToGitHub(): Promise<{ committed: boolean; pushed: boolean; output: string }> {
+  const res = await fetch('/__tours/publish', { method: 'POST' });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(`${data.error ?? 'Publish failed'}${data.output ? `\n${data.output}` : ''}`);
+  return data;
+}
+
 // ---------------------------------------------------------------------------
 
 async function post(path: string, body: unknown): Promise<void> {

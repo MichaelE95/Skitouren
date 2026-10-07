@@ -1,70 +1,105 @@
-# 🎿 Skitour-Planer | Augsburg Haunstetter Straße ↔ Nordalpen
+# Skitour-Planer
 
-Eine schlanke, interaktive Single Page Web-App zur schnellen und zuverlässigen Planung von Skitouren mit dem öffentlichen Nahverkehr (primär **Deutschland-Ticket**) direkt ab **Augsburg Haunstetter Straße**.
+A small single-page web app for planning ski tours in the Northern Alps **by public transport**.
+Every tour is defined by a GPX file. The app computes real connections from your start location
+to each tour's trailhead and lets you filter by total travel time, difficulty, elevation gain and more.
 
----
-
-## 🏔️ Highlights & Funktionen
-
-- **📍 Heimatbahnhof im Fokus:** Alle Touren berechnen Abfahrtszeiten, Umstiege und Fahrtdauer ab **Augsburg Haunstetter Straße (`8000713`)**.
-- **🎫 Deutschland-Ticket Transparenz:** Sofortige Kennzeichnung, ob die Anreise zu 100% im D-Ticket inkludiert ist (z.B. Außerfernbahn, Walserbus) oder ob kleine Teilstrecken-Tickets anfallen (z.B. Tannheimer Tal Bus 120, ÖBB Scharnitz–Seefeld).
-- **🗺️ Interaktive Alpine 3D-Karte (MapLibre GL):**
-  - Topografische Relief- und Standard-Karten
-  - **3D-Geländerelief (Pitch & Tilt):** Plastische Beurteilung von Steilheit und Hängen
-  - Visualisierung der wichtigsten Bahnstrecken (Außerfernbahn, Werdenfelsbahn, Allgäu-Express, Füssen-Bahn, Walserbus)
-  - Zoom & GPX-Routen-Highlighting bei Auswahl einer Tour
-- **⚠️ Integrierter Lawinenwarndienst (EAWS):**
-  - Farbcodierte Gefahrenstufen (Stufe 1 bis 5) direkt auf der Karte (Bayern & Tirol/Vorarlberg)
-  - Live-Gefahrenbadge, kritische Hangexpositionen und Lawinenprobleme auf jeder Tourenkarte
-- **🧗 Offizielle SAC-Skitourenskala:**
-  - Exakte Einstufung (L-, L, L+, WS-, WS, WS+, ZS-, ZS, ZS+, S) mit Schnellfiltern für Hauptkategorien
-- **📥 GPX-Download & Skitourenguru:**
-  - 1-Klick GPX-Track Download für GPS-Geräte & Uhren (Garmin, Suunto, Outdooractive)
-  - Deep-Link direkt zur automatisierten Risikoberechnung auf **Skitourenguru.ch**
-- **🚆 Live DB Fahrplanabfrage:**
-  - Echtzeit-Abfrage der heutigen Regionalzugverbindungen ab Haunstetter Straße mit Gleisangaben und eventuellen Verspätungen
-- **🔍 Mächtige Filter:**
-  - Filter nach Fahrzeit ab Haunstetter Str. (z.B. ≤ 2h)
-  - Schnellfilter *Nur 100% Deutschland-Ticket*
-  - Schnellfilter *Nur Pistenskitouren* (sichere Ausweichtour bei hoher Lawinenwarnstufe oder schlechter Sicht)
-  - Filter nach Höhenmeter-Aufstieg, SAC-Schwierigkeit, Gebirgsgruppe und Lawinenstufe
-- **🏠 Mehrtagestouren & DAV-Hütten:**
-  - Vorbereitung für Mehrtages-Touren mit DAV-Hütten und Winterräumen (z.B. Mindelheimer Hütte)
+Live site: <https://michaele95.github.io/Skitouren/>
 
 ---
 
-## 🚀 Lokale Entwicklung
+## Features
 
-```bash
-# Abhängigkeiten installieren
-npm install
+- **Map** (MapLibre, OpenStreetMap/OpenTopoMap tiles) with every tour's GPX track, trailhead and summit.
+- **Real connections** from any start (station or address) to the trailhead (the first GPX point),
+  including the walk from the last stop. Queried from [Transitous](https://transitous.org).
+- **"Nur Nahverkehr"** switch: regional trains, S-Bahn, buses and trams only (no ICE/IC/EC, no Flixbus) – roughly Deutschlandticket-style.
+- **Filters & sorting** by total travel time, elevation gain, SAC grade, Gebirgsgruppe, piste tours and rating.
+- **Add, edit and delete tours** from a GPX file, directly in the browser.
+- Results are **cached** in the browser and only recalculated when you click **"Fahrplan laden"**.
 
-# Lokalen Entwicklungsserver starten
-npm run dev
+> [!NOTE]
+> The avalanche layer is still a placeholder (rough regions with fixed levels). Don't use it for decisions.
 
-# Produktions-Build erstellen
-npm run build
+## Where the data comes from
+
+| Data | Source |
+| --- | --- |
+| Peak name, start/peak elevation, elevation gain, distance, trailhead, summit, track | **GPX file** (parsed in the browser) |
+| Gebirgsgruppe | Wikidata lookup around the summit (optional, editable) |
+| SAC grade, piste tour yes/no, Skitourenguru link (optional), rating, notes | Entered by you |
+| Connections and travel time | Transitous API, from your start coordinates to the trailhead coordinates |
+
+Nothing else is hard-coded. A GPX file with elevation data is the only requirement.
+
+## Project structure
+
+```
+public/tours/            ← THE tour database (committed to git)
+  tours.json             ← metadata for all tours
+  <id>.gpx               ← original GPX file per tour
+src/
+  App.tsx                ← state, filtering, layout
+  components/            ← Navbar, filter sidebar, tour cards/detail panel, add-tour modal, map
+  services/
+    transitService.ts    ← Transitous queries (origin → trailhead)
+    transitSnapshot.ts   ← cached results in localStorage
+    tourStore.ts         ← load/save/delete tours, Export, Push to GitHub
+    peakLookup.ts        ← Wikidata Gebirgsgruppe lookup
+  utils/gpxParser.ts     ← GPX parsing
+vite-plugin-tour-store.ts ← local-only API that writes public/tours and runs git
+start.bat                ← one-click local start (Windows)
 ```
 
----
+## Running locally
 
-## 🌐 Kostenloses Hosting auf GitHub Pages
+Requirements: [Node.js](https://nodejs.org/) 20+ and git.
 
-Die Anwendung ist zu 100% als statische Single Page Application konzipiert und enthält bereits einen fertigen GitHub Actions Workflow (`.github/workflows/deploy.yml`).
+**Windows:** double-click **`start.bat`**. It installs the dependencies on first run, starts the
+dev server and opens <http://localhost:3000>. Close the console window to stop it.
 
-### In 2 Schritten aktivieren:
-1. Projekt in ein GitHub-Repository pushen.
-2. Im GitHub-Repository unter **Settings** → **Pages** die Option **Build and deployment > Source** auf **GitHub Actions** stellen.
-3. Die App wird bei jedem Push auf `main` automatisch gebaut und kostenlos unter `https://<dein-nutzername>.github.io/<repo-name>/` veröffentlicht!
+**Manually:**
 
-*(Alternativ: Auch auf Vercel oder Netlify mit einem Klick kostenlos importierbar).*
+```bash
+npm install
+npm run dev        # http://localhost:3000
+npm run build      # production build into dist/
+```
 
----
+## Adding and saving tours
 
-## 📝 Touren erweitern oder anpassen
+There are two modes, depending on where you open the app.
 
-Alle Touren, SAC-Schwierigkeiten, Fahrzeiten und persönlichen Freundes-Tipps sind in einer übersichtlichen Datei versioniert:
-👉 [`src/data/tours.ts`](./src/data/tours.ts)
+### 1. Local (`start.bat` / `npm run dev`) – recommended
 
-Neue Touren können dort einfach als JSON/TypeScript-Objekt eingetragen werden und stehen sofort auf der Website zur Verfügung.
+1. Click **"Tour hinzufügen"**, pick a GPX file and fill in SAC grade, etc.
+2. The tour is written straight into `public/tours/` (the GPX file plus an entry in `tours.json`).
+   Edits, ratings, notes and deletions are saved there too.
+3. Click **"Export → GitHub"** (amber = unpublished changes). This commits **only** `public/tours/`
+   and runs `git push`. GitHub Actions then rebuilds the live site within 1–2 minutes.
 
+Push uses your normal git credentials (Git Credential Manager on Windows). If the push fails,
+the error from git is shown in the app.
+
+### 2. Hosted site (GitHub Pages)
+
+The live site is static and can't write to the repository. Changes made there are kept in
+**your browser only** (localStorage) and are marked with an amber **"Export"** button.
+Clicking it downloads `tours.json` and any new GPX files. Copy them into `public/tours/` and commit,
+or simply redo the change locally. Once the deployed `tours.json` contains a change, the browser copy is cleaned up automatically.
+
+## Deployment (GitHub Pages)
+
+Every push to `main` runs [`.github/workflows/deploy.yml`](.github/workflows/deploy.yml):
+`npm ci` → `npm run build` → upload `dist/` → deploy to Pages.
+
+One-time setup: in the GitHub repository, open **Settings → Pages → Build and deployment → Source**
+and select **"GitHub Actions"**. Without this, the "Setup Pages" step fails with *"Get Pages site failed – Not Found"*.
+
+The app uses relative paths (`base: './'`), so it works under any sub-path.
+
+## Limits and fair use
+
+- Transitous is a free, community-run service. The app requests one connection per tour (3 at a time) and only when you click "Fahrplan laden". Please keep it that way.
+- The "earliest arrival" connection can include a long final walk. Cards flag walks over 30 minutes.
+- Wikidata doesn't know the Gebirgsgruppe for every peak. In that case you can enter it yourself or leave it empty.

@@ -9,7 +9,10 @@ import { planAllTours, planTourJourney, DEFAULT_ORIGIN } from './services/transi
 import {
   loadSnapshot, saveSnapshot, withTourResult, withoutTour, isStale as snapshotIsStale, defaultDepartureLocal
 } from './services/transitSnapshot';
-import { loadTours, saveTour, deleteTour, exportOverlay, canWriteToRepo, hasOverlayChanges } from './services/tourStore';
+import {
+  loadTours, saveTour, deleteTour, exportOverlay, canWriteToRepo, hasOverlayChanges,
+  getRepoStatus, publishToGitHub, type RepoStatus
+} from './services/tourStore';
 import { formatDateTime } from './utils/format';
 
 import { Navbar } from './components/Header/Navbar';
@@ -185,6 +188,34 @@ export const App: React.FC = () => {
   // Hosted site only: edits that live in this browser and are not in the repo yet
   const exportPending = useMemo(() => !canWriteToRepo && hasOverlayChanges(), [tours]);
 
+  // Local dev only: tour changes not yet committed/pushed -> "Push to GitHub"
+  const [repoStatus, setRepoStatus] = useState<RepoStatus | null>(null);
+  const [publishing, setPublishing] = useState(false);
+  const [publishMsg, setPublishMsg] = useState<{ ok: boolean; text: string } | null>(null);
+  useEffect(() => {
+    if (canWriteToRepo && toursLoaded) getRepoStatus().then(setRepoStatus);
+  }, [tours, toursLoaded]);
+  const pushPending = !!repoStatus && (repoStatus.uncommitted > 0 || repoStatus.unpushed > 0);
+
+  const handlePublish = async () => {
+    setPublishing(true);
+    setPublishMsg(null);
+    try {
+      const r = await publishToGitHub();
+      setPublishMsg({
+        ok: true,
+        text: r.committed || r.pushed
+          ? 'Pushed to GitHub. The website redeploys in about 1–2 minutes.'
+          : 'Nothing to push – GitHub is already up to date.'
+      });
+    } catch (err) {
+      setPublishMsg({ ok: false, text: err instanceof Error ? err.message : String(err) });
+    } finally {
+      setPublishing(false);
+      getRepoStatus().then(setRepoStatus);
+    }
+  };
+
   const selectedTour = tours.find(t => t.id === selectedTourId) ?? null;
   const selectedResult = selectedTour ? snapshot?.results[selectedTour.id] : undefined;
   const selectedJourney = selectedResult && selectedResult.ok ? selectedResult.best : undefined;
@@ -209,9 +240,31 @@ export const App: React.FC = () => {
         onLoadTimetable={handleLoadTimetable}
         progress={progress}
         isStale={stale || (snapshot === null && tours.length > 0)}
-        onExport={canWriteToRepo ? undefined : () => exportOverlay()}
-        exportPending={exportPending}
+        onExport={canWriteToRepo ? handlePublish : () => exportOverlay()}
+        exportPending={canWriteToRepo ? pushPending : exportPending}
+        exportBusy={publishing}
+        exportLabel={
+          canWriteToRepo
+            ? publishing ? 'Pushing…' : pushPending ? 'Export → GitHub (ausstehend)' : 'Export → GitHub'
+            : undefined
+        }
+        exportTitle={
+          canWriteToRepo
+            ? 'Commit public/tours/ and push to GitHub – the website redeploys automatically'
+            : undefined
+        }
       />
+
+      {publishMsg && (
+        <div
+          className={`fixed top-[4.5rem] right-4 z-50 max-w-md whitespace-pre-wrap rounded-xl border px-4 py-2.5 text-xs shadow-lg ${
+            publishMsg.ok ? 'bg-emerald-50 border-emerald-300 text-emerald-800' : 'bg-rose-50 border-rose-300 text-rose-800'
+          }`}
+        >
+          <button onClick={() => setPublishMsg(null)} className="float-right ml-3 font-bold cursor-pointer" title="Close">×</button>
+          {publishMsg.text}
+        </div>
+      )}
 
       <div className="flex-1 flex overflow-hidden relative">
         {/* Single left panel: tour details OR filters OR tour list */}
