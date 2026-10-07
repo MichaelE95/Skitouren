@@ -1,7 +1,7 @@
 import React, { useRef, useState } from 'react';
 import { SkiTour, SAC_GRADES, SACGrade } from '../../types';
 import { parseGpxString, ParsedGpxResult, slugify } from '../../utils/gpxParser';
-import { lookupPeak } from '../../services/peakLookup';
+import { lookupMountainRange } from '../../services/peakLookup';
 import { X, Upload, Loader2, AlertTriangle, CheckCircle2, Save } from 'lucide-react';
 
 interface AddTourModalProps {
@@ -13,8 +13,8 @@ interface AddTourModalProps {
 }
 
 /**
- * Only the GPX is required. Metrics come from the GPX; peak name and Gebirgsgruppe
- * from OSM/Wikidata (editable, with warnings if missing); the rest is entered here.
+ * Only the GPX is required. Metrics and the name come from the GPX (name editable);
+ * the Gebirgsgruppe is looked up on Wikidata in the background (optional).
  */
 export const AddTourModal: React.FC<AddTourModalProps> = ({ isOpen, existingIds, onClose, onSave }) => {
   const [gpxText, setGpxText] = useState<string | null>(null);
@@ -23,6 +23,7 @@ export const AddTourModal: React.FC<AddTourModalProps> = ({ isOpen, existingIds,
   const [parseError, setParseError] = useState<string | null>(null);
   const [lookupBusy, setLookupBusy] = useState(false);
   const [warnings, setWarnings] = useState<string[]>([]);
+  const [rangeSource, setRangeSource] = useState<string | null>(null);
 
   const [peakName, setPeakName] = useState('');
   const [mountainRange, setMountainRange] = useState('');
@@ -34,11 +35,14 @@ export const AddTourModal: React.FC<AddTourModalProps> = ({ isOpen, existingIds,
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
+  const lookupIdRef = useRef(0);
 
   if (!isOpen) return null;
 
   const reset = () => {
-    setGpxText(null); setFileName(''); setParsed(null); setParseError(null); setWarnings([]);
+    lookupIdRef.current++;
+    setGpxText(null); setFileName(''); setParsed(null); setParseError(null); setWarnings([]); setRangeSource(null);
+    setLookupBusy(false);
     setPeakName(''); setMountainRange(''); setDifficulty('WS'); setIsPiste(false);
     setSkitourenguruUrl(''); setNotes(''); setSaveError(null);
   };
@@ -58,21 +62,19 @@ export const AddTourModal: React.FC<AddTourModalProps> = ({ isOpen, existingIds,
     }
     setGpxText(text);
     setParsed(result);
+    setPeakName(result.nameFromFile);
 
+    // Optional, non-blocking Gebirgsgruppe lookup
+    const id = ++lookupIdRef.current;
     setLookupBusy(true);
-    const lookup = await lookupPeak(result.summit);
+    const lookup = await lookupMountainRange(result.summit);
+    if (lookupIdRef.current !== id) return; // another file was chosen meanwhile
     setLookupBusy(false);
-    const w = [...lookup.warnings];
-    setPeakName(lookup.peakName ?? '');
-    setMountainRange(lookup.mountainRange ?? '');
-    if (!lookup.peakName) w.push(`Name in the GPX file: "${result.nameFromFile}" (not used automatically).`);
-    if (lookup.peakEle !== undefined && Math.abs(lookup.peakEle - result.peakElevation) > 60) {
-      w.push(
-        `OSM gives ${lookup.peakEle} m for ${lookup.peakName}, the GPX's highest point is ${result.peakElevation} m. ` +
-        `The track may not reach the summit, or its elevations are imprecise. The GPX value is used.`
-      );
+    if (lookup.mountainRange) {
+      setMountainRange(prev => prev || lookup.mountainRange!);
+      setRangeSource(lookup.matchedItem ?? null);
     }
-    setWarnings(w);
+    if (lookup.warning) setWarnings([lookup.warning]);
   };
 
   const handleSave = async () => {
@@ -154,29 +156,27 @@ export const AddTourModal: React.FC<AddTourModalProps> = ({ isOpen, existingIds,
                 </div>
               </div>
 
-              {lookupBusy ? (
-                <div className="flex items-center space-x-1.5 text-alpine-600">
-                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                  <span>Looking up the peak (OpenStreetMap, Wikidata)…</span>
-                </div>
-              ) : warnings.length > 0 ? (
-                <div className="p-2.5 rounded-lg bg-amber-50 border border-amber-200 text-amber-800 space-y-1">
-                  {warnings.map((w, i) => (
-                    <div key={i} className="flex items-start space-x-1.5"><AlertTriangle className="w-3.5 h-3.5 shrink-0 mt-0.5" /><span>{w}</span></div>
-                  ))}
-                </div>
-              ) : (
-                <div className="flex items-center space-x-1.5 text-emerald-700">
-                  <CheckCircle2 className="w-3.5 h-3.5" /><span>Peak and Gebirgsgruppe found (OSM + Wikidata).</span>
-                </div>
-              )}
-
               <div className="space-y-2.5">
-                <F label="Gipfel *">
+                <F label="Name * (from the GPX, editable)">
                   <input className="input" value={peakName} onChange={e => setPeakName(e.target.value)} />
                 </F>
-                <F label="Gebirgsgruppe">
-                  <input className="input" value={mountainRange} onChange={e => setMountainRange(e.target.value)} placeholder="z. B. Wettersteingebirge" />
+                <F label="Gebirgsgruppe (optional)">
+                  <input className="input" value={mountainRange} onChange={e => setMountainRange(e.target.value)} placeholder="z. B. Allgäuer Alpen" />
+                  {lookupBusy && (
+                    <span className="mt-1 flex items-center space-x-1 text-[10px] text-alpine-600">
+                      <Loader2 className="w-3 h-3 animate-spin" /><span>Looking it up on Wikidata… (you can save anyway)</span>
+                    </span>
+                  )}
+                  {!lookupBusy && rangeSource && (
+                    <span className="mt-1 flex items-center space-x-1 text-[10px] text-emerald-700">
+                      <CheckCircle2 className="w-3 h-3" /><span>Wikidata: {rangeSource}</span>
+                    </span>
+                  )}
+                  {!lookupBusy && warnings.map((w, i) => (
+                    <span key={i} className="mt-1 flex items-start space-x-1 text-[10px] text-amber-700">
+                      <AlertTriangle className="w-3 h-3 shrink-0" /><span>{w}</span>
+                    </span>
+                  ))}
                 </F>
                 <div className="grid grid-cols-2 gap-2">
                   <F label="SAC-Schwierigkeit *">
@@ -208,7 +208,7 @@ export const AddTourModal: React.FC<AddTourModalProps> = ({ isOpen, existingIds,
           <button onClick={close} className="px-4 py-2 rounded-xl border border-slate-300 text-xs font-semibold">Abbrechen</button>
           <button
             onClick={handleSave}
-            disabled={!parsed || lookupBusy || saving}
+            disabled={!parsed || saving}
             className="px-4 py-2 rounded-xl bg-alpine-600 hover:bg-alpine-700 text-white text-xs font-bold flex items-center space-x-1.5 disabled:opacity-50"
           >
             {saving ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5" />}

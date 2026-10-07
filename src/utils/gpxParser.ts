@@ -24,6 +24,7 @@ export function parseGpxString(gpxText: string, fileName: string): ParsedGpxResu
   const nameNode = xmlDoc.querySelector('trk > name') || xmlDoc.querySelector('metadata > name');
   const nameFromFile = (nameNode?.textContent?.trim() || fileName.replace(/\.gpx$/i, ''))
     .replace(/[_]+/g, ' ')
+    .replace(/^\s*\d+\s*[-–:]\s*/, '') // "4757 - Hoher Ifen (Auenhütte)" -> "Hoher Ifen (Auenhütte)"
     .trim();
 
   let nodes = Array.from(xmlDoc.querySelectorAll('trkpt'));

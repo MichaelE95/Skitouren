@@ -19,3 +19,4 @@ export function formatDateTime(iso: string): string {
   if (isNaN(d.getTime())) return '';
   return d.toLocaleString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });
 }
+

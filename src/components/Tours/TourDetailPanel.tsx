@@ -346,3 +346,4 @@ const Metric: React.FC<{ label: string; value: string }> = ({ label, value }) =>
     <div className="text-xs font-bold text-slate-800">{value}</div>
   </div>
 );
+

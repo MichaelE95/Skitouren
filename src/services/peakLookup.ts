@@ -1,86 +1,54 @@
 /**
- * Q10: peak name + Gebirgsgruppe, looked up once when a tour is added.
- * 1) OSM Overpass: nearest natural=peak within 300 m of the GPX's highest point
- * 2) Wikidata: that peak's "mountain range" (P4552), German label
- * Anything missing -> a warning; the user types it in.
+ * Gebirgsgruppe lookup, done once when a tour is added (optional, never blocking).
+ * One Wikidata SPARQL request: the nearest Wikidata item within 1 km of the GPX's
+ * highest point that has a "mountain range" (P4552). No Overpass: its public servers
+ * were too unreliable (504s / timeouts) in testing.
  */
-export interface PeakLookupResult {
-  peakName?: string;
-  peakEle?: number;
+export interface RangeLookupResult {
   mountainRange?: string;
-  warnings: string[];
+  matchedItem?: string; // e.g. "Hoher Ifen (280 m entfernt)"
+  warning?: string;
 }
 
-const OVERPASS = 'https://overpass-api.de/api/interpreter';
-const WIKIDATA = 'https://www.wikidata.org/w/api.php';
+const SPARQL = 'https://query.wikidata.org/sparql';
+const TIMEOUT_MS = 15000;
 
-export async function lookupPeak(summit: [number, number]): Promise<PeakLookupResult> {
+export async function lookupMountainRange(summit: [number, number]): Promise<RangeLookupResult> {
   const [lng, lat] = summit;
-  const warnings: string[] = [];
-  const result: PeakLookupResult = { warnings };
+  const query = `
+SELECT ?itemLabel ?rangeLabel ?dist WHERE {
+  SERVICE wikibase:around {
+    ?item wdt:P625 ?loc .
+    bd:serviceParam wikibase:center "Point(${lng} ${lat})"^^geo:wktLiteral .
+    bd:serviceParam wikibase:radius "1" .
+    bd:serviceParam wikibase:distance ?dist .
+  }
+  ?item wdt:P4552 ?range .
+  SERVICE wikibase:label { bd:serviceParam wikibase:language "de,en". }
+} ORDER BY ?dist LIMIT 1`;
 
-  let wikidataId: string | undefined;
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), TIMEOUT_MS);
   try {
-    const query = `[out:json][timeout:20];node(around:300,${lat},${lng})[natural=peak][name];out tags center;`;
-    const res = await fetch(OVERPASS, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-      body: 'data=' + encodeURIComponent(query)
+    const res = await fetch(`${SPARQL}?format=json&query=${encodeURIComponent(query)}`, {
+      signal: controller.signal,
+      headers: { Accept: 'application/sparql-results+json' }
     });
-    if (!res.ok) throw new Error(`Overpass HTTP ${res.status}`);
+    if (!res.ok) throw new Error(`Wikidata HTTP ${res.status}`);
     const data = await res.json();
-    const peaks: any[] = data.elements || [];
-    if (peaks.length === 0) {
-      warnings.push('No named OSM peak within 300 m of the highest GPX point. Please enter the peak name.');
-    } else {
-      const dist = (p: any) => (p.lat - lat) ** 2 + ((p.lon - lng) * Math.cos((lat * Math.PI) / 180)) ** 2;
-      const nearest = peaks.sort((a, b) => dist(a) - dist(b))[0];
-      result.peakName = nearest.tags['name:de'] || nearest.tags.name;
-      const ele = parseFloat(nearest.tags.ele);
-      if (!isNaN(ele)) result.peakEle = Math.round(ele);
-      wikidataId = nearest.tags.wikidata;
+    const row = data?.results?.bindings?.[0];
+    if (!row) {
+      return { warning: 'No Wikidata entry with a mountain range within 1 km of the summit. Enter the Gebirgsgruppe if you like.' };
     }
-  } catch (err) {
-    warnings.push(`Peak lookup (OpenStreetMap) failed: ${err instanceof Error ? err.message : err}. Please enter the peak name.`);
+    const distM = Math.round(parseFloat(row.dist.value) * 1000);
+    return {
+      mountainRange: row.rangeLabel.value,
+      matchedItem: `${row.itemLabel.value} (${distM} m from the GPX summit)`
+    };
+  } catch (err: any) {
+    const msg = err?.name === 'AbortError' ? 'timed out' : err instanceof Error ? err.message : String(err);
+    return { warning: `Gebirgsgruppe lookup failed (${msg}). Enter it manually if you like.` };
+  } finally {
+    clearTimeout(timer);
   }
-
-  if (result.peakName) {
-    if (!wikidataId) {
-      warnings.push(`"${result.peakName}" has no Wikidata link in OSM, so the Gebirgsgruppe is unknown. Please enter it.`);
-    } else {
-      try {
-        const range = await wikidataRange(wikidataId);
-        if (range) result.mountainRange = range;
-        else warnings.push(`Wikidata has no mountain range for "${result.peakName}". Please enter the Gebirgsgruppe.`);
-      } catch (err) {
-        warnings.push(`Wikidata lookup failed: ${err instanceof Error ? err.message : err}. Please enter the Gebirgsgruppe.`);
-      }
-    }
-  } else {
-    warnings.push('Gebirgsgruppe unknown (no peak found). Please enter it.');
-  }
-
-  return result;
-}
-
-async function wikidataRange(id: string): Promise<string | undefined> {
-  const entity = await wbget(id, 'claims');
-  const claims: any[] = entity?.claims?.P4552 || [];
-  const rangeIds = claims.map(c => c.mainsnak?.datavalue?.value?.id).filter(Boolean) as string[];
-  if (rangeIds.length === 0) return undefined;
-  const labels = await wbget(rangeIds.join('|'), 'labels', true);
-  const names = rangeIds
-    .map(rid => labels?.[rid]?.labels?.de?.value || labels?.[rid]?.labels?.en?.value)
-    .filter(Boolean);
-  return names.join(' / ') || undefined;
-}
-
-async function wbget(ids: string, props: string, multi = false): Promise<any> {
-  const q = new URLSearchParams({
-    action: 'wbgetentities', ids, props, languages: 'de|en', format: 'json', origin: '*'
-  });
-  const res = await fetch(`${WIKIDATA}?${q.toString()}`);
-  if (!res.ok) throw new Error(`Wikidata HTTP ${res.status}`);
-  const data = await res.json();
-  return multi ? data.entities : data.entities?.[ids];
 }

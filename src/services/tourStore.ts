@@ -115,3 +115,4 @@ function download(name: string, content: string, type: string): void {
   a.remove();
   URL.revokeObjectURL(url);
 }
+
