@@ -2,36 +2,44 @@ import React from 'react';
 import { SkiTour, AvalancheRegion, SACCategory } from '../../types';
 import { getTourAvalancheRisk } from '../../services/avalancheService';
 import { EAWS_COLORS } from '../../data/avalancheData';
-import { Clock, Train, TrendingUp, Mountain, Star, AlertTriangle, ArrowRight, ShieldCheck } from 'lucide-react';
+import { Clock, Train, Star, AlertTriangle, ArrowRight, ShieldCheck, Footprints, AlertCircle } from 'lucide-react';
 
 interface TourCardProps {
   tour: SkiTour;
   isSelected: boolean;
   onSelect: (tour: SkiTour) => void;
   avalancheRegions: AvalancheRegion[];
+  onRatingChange?: (tourId: string, rating: number | null) => void;
 }
 
 export const TourCard: React.FC<TourCardProps> = ({
   tour,
   isSelected,
   onSelect,
-  avalancheRegions
+  avalancheRegions,
+  onRatingChange
 }) => {
   const currentRisk = getTourAvalancheRisk(tour, avalancheRegions);
   const eaws = EAWS_COLORS[currentRisk.dangerLevel] || EAWS_COLORS[2];
 
-  // Helper for formatting minutes into "Xh Ym"
   const hours = Math.floor(tour.transit.approxTotalMinutes / 60);
   const minutes = tour.transit.approxTotalMinutes % 60;
   const transitTimeStr = `${hours}h ${minutes > 0 ? `${minutes}m` : ''}`;
 
-  // Difficulty badge colors
   const diffBadgeColor = {
     'L': 'bg-emerald-50 text-emerald-700 border-emerald-200',
     'WS': 'bg-blue-50 text-blue-700 border-blue-200',
     'ZS': 'bg-amber-50 text-amber-700 border-amber-200',
     'S': 'bg-rose-50 text-rose-700 border-rose-200'
   }[tour.difficultyCategory] || 'bg-slate-50 text-slate-700 border-slate-200';
+
+  const handleStarClick = (e: React.MouseEvent, star: number) => {
+    e.stopPropagation();
+    if (onRatingChange) {
+      const next = tour.rating === star ? null : star;
+      onRatingChange(tour.id, next);
+    }
+  };
 
   return (
     <div
@@ -54,7 +62,12 @@ export const TourCard: React.FC<TourCardProps> = ({
             <span>{tour.name}</span>
             {tour.type === 'multiday' && (
               <span className="text-[10px] uppercase font-bold bg-purple-100 text-purple-700 px-1.5 py-0.5 rounded border border-purple-200">
-                Mehrtagestour
+                Mehrtag
+              </span>
+            )}
+            {tour.isCustomTour && (
+              <span className="text-[10px] uppercase font-bold bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded border border-blue-200">
+                Neu
               </span>
             )}
           </h3>
@@ -79,24 +92,27 @@ export const TourCard: React.FC<TourCardProps> = ({
       </p>
 
       {/* Stats Badges Grid */}
-      <div className="grid grid-cols-3 gap-2 bg-slate-50/80 p-2 rounded-xl mb-3 text-center border border-slate-100">
+      <div className="grid grid-cols-4 gap-1.5 bg-slate-50/80 p-2 rounded-xl mb-3 text-center border border-slate-100">
         <div>
           <div className="text-[10px] text-slate-500 font-medium">Gipfel</div>
           <div className="text-xs font-bold text-slate-800">{tour.peakElevation} m</div>
         </div>
         <div>
           <div className="text-[10px] text-slate-500 font-medium">Aufstieg</div>
-          <div className="text-xs font-bold text-slate-800">+{tour.elevationGain} hm</div>
+          <div className="text-xs font-bold text-emerald-700">+{tour.elevationGain} hm</div>
         </div>
         <div>
-          <div className="text-[10px] text-slate-500 font-medium">Tourdauer</div>
-          <div className="text-xs font-bold text-slate-800">ca. {tour.estimatedTourDurationHours} h</div>
+          <div className="text-[10px] text-slate-500 font-medium">Distanz</div>
+          <div className="text-xs font-bold text-slate-800">{tour.distanceKm} km</div>
+        </div>
+        <div>
+          <div className="text-[10px] text-slate-500 font-medium">Dauer</div>
+          <div className="text-xs font-bold text-slate-800">{tour.estimatedTourDurationHours} h</div>
         </div>
       </div>
 
-      {/* Transit & Avalanche Info */}
+      {/* Transit & Walking Connection */}
       <div className="space-y-1.5 pt-1 border-t border-slate-100">
-        {/* Transit from Haunstetter Str. */}
         <div className="flex items-center justify-between text-xs">
           <div className="flex items-center space-x-1.5 text-slate-700 font-medium truncate">
             <Train className="w-3.5 h-3.5 text-alpine-600 shrink-0" />
@@ -107,6 +123,14 @@ export const TourCard: React.FC<TourCardProps> = ({
             <span>{transitTimeStr}</span>
           </div>
         </div>
+
+        {/* Footprints walking connection */}
+        {tour.transit.walkingDurationMinutes > 0 && (
+          <div className="flex items-center space-x-1 text-[11px] text-slate-500">
+            <Footprints className="w-3 h-3 text-slate-400" />
+            <span>ca. {tour.transit.walkingDurationMinutes} min Fußweg ab {tour.transit.cleanDbStationName}</span>
+          </div>
+        )}
 
         {/* D-Ticket Validity & Avalanche Risk Pill */}
         <div className="flex items-center justify-between text-[11px] pt-1">
@@ -121,28 +145,61 @@ export const TourCard: React.FC<TourCardProps> = ({
             </span>
           )}
 
-          {/* Avalanche Indicator */}
-          <span
-            className="inline-flex items-center space-x-1 font-bold px-2 py-0.5 rounded-full border text-[11px]"
-            style={{
-              backgroundColor: eaws.bg,
-              color: eaws.text,
-              borderColor: eaws.border
-            }}
-            title={`Aktuelle Lawinenstufe: ${currentRisk.name}`}
-          >
-            <AlertTriangle className="w-3 h-3" />
-            <span>Stufe {currentRisk.dangerLevel} ({currentRisk.dangerLevelLabel})</span>
-          </span>
+          {/* Avalanche Indicator (Handles Off-Season gracefully!) */}
+          {!currentRisk.isSeasonActive ? (
+            <span className="inline-flex items-center space-x-1 font-semibold text-slate-600 bg-slate-100 px-2 py-0.5 rounded-full border border-slate-300 text-[10px]">
+              <span>❄️ Saisonpause</span>
+            </span>
+          ) : (
+            <span
+              className="inline-flex items-center space-x-1 font-bold px-2 py-0.5 rounded-full border text-[11px]"
+              style={{
+                backgroundColor: eaws.bg,
+                color: eaws.text,
+                borderColor: eaws.border
+              }}
+            >
+              <AlertTriangle className="w-3 h-3" />
+              <span>Stufe {currentRisk.dangerLevel} ({currentRisk.dangerLevelLabel})</span>
+            </span>
+          )}
         </div>
+
+        {/* Unverified Skitourenguru warning if applicable */}
+        {!tour.links.isVerifiedUrl && (
+          <div className="text-[10px] text-amber-800 bg-amber-50 px-2 py-0.5 rounded border border-amber-200 flex items-center space-x-1 mt-1">
+            <AlertCircle className="w-3 h-3 text-amber-600 shrink-0" />
+            <span className="truncate">Skitourenguru-Link unbestätigt (Suche aktiv)</span>
+          </div>
+        )}
       </div>
 
-      {/* Card Footer: Rating & Open CTA */}
+      {/* Card Footer: Interactive Rating & Open CTA */}
       <div className="flex items-center justify-between mt-3 pt-2 border-t border-slate-100 text-xs">
-        <div className="flex items-center space-x-1 text-amber-500 font-bold">
-          <Star className="w-3.5 h-3.5 fill-amber-400" />
-          <span className="text-slate-800">{tour.rating.toFixed(1)}</span>
+        {/* Clickable 1-5 Star Rating */}
+        <div className="flex items-center space-x-1">
+          {[1, 2, 3, 4, 5].map(star => (
+            <button
+              key={star}
+              type="button"
+              onClick={(e) => handleStarClick(e, star)}
+              className="p-0.5 hover:scale-125 transition-transform"
+              title={tour.rating === star ? 'Bewertung löschen' : `${star} Sterne`}
+            >
+              <Star
+                className={`w-3.5 h-3.5 ${
+                  tour.rating && tour.rating >= star
+                    ? 'fill-amber-400 text-amber-400'
+                    : 'text-slate-300 hover:text-amber-300'
+                }`}
+              />
+            </button>
+          ))}
+          <span className="text-[11px] text-slate-500 ml-1">
+            {tour.rating ? `${tour.rating}/5` : 'Noch nicht gemacht'}
+          </span>
         </div>
+
         <div className="text-alpine-600 font-semibold flex items-center space-x-0.5 group-hover:translate-x-0.5 transition-transform text-xs">
           <span>Details & GPX</span>
           <ArrowRight className="w-3.5 h-3.5" />
@@ -151,4 +208,3 @@ export const TourCard: React.FC<TourCardProps> = ({
     </div>
   );
 };
-

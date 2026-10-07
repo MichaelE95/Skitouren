@@ -20,15 +20,17 @@ export interface LiveJourneyResult {
 
 /**
  * Queries DB HAFAS via transport.rest proxy for regional train connections
- * starting from Augsburg Haunstetter Straße (8000713).
+ * starting from any selected origin station (default: Augsburg Haunstetter Str. 8000713).
  */
 export async function fetchLiveJourneys(
   destinationIbnr: string,
   destinationName: string,
+  cleanDbStationName: string,
+  originIbnr: string = '8000713',
+  originName: string = 'Augsburg Haunstetter Straße',
   departureDateTime?: string
 ): Promise<LiveJourneyResult[]> {
   try {
-    const originIbnr = '8000713'; // Augsburg Haunstetter Str.
     let url = `https://v6.db.transport.rest/journeys?from=${originIbnr}&to=${destinationIbnr}&onlyRegional=true&results=3`;
     
     if (departureDateTime) {
@@ -52,6 +54,9 @@ export async function fetchLiveJourneys(
     if (!Array.isArray(data.journeys) || data.journeys.length === 0) {
       return [];
     }
+
+    const searchTarget = cleanDbStationName || destinationName;
+    const dbUrl = buildDbNavigatorUrl(originName, searchTarget);
 
     return data.journeys.map((j: any) => {
       const depDate = new Date(j.legs[0]?.departure || j.plannedDeparture);
@@ -77,8 +82,6 @@ export async function fetchLiveJourneys(
         };
       });
 
-      const dbUrl = `https://www.bahn.de/buchung/fahrplan/suche#sts=true&so=Augsburg%20Haunstetter%20Stra%C3%9Fe&zo=${encodeURIComponent(destinationName)}`;
-
       return {
         departure: depDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
         arrival: arrDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
@@ -94,3 +97,9 @@ export async function fetchLiveJourneys(
   }
 }
 
+/**
+ * Generates an official working search link to bahn.de / DB Navigator.
+ */
+export function buildDbNavigatorUrl(originStationName: string, destinationStationName: string): string {
+  return `https://www.bahn.de/buchung/fahrplan/suche#sts=true&so=${encodeURIComponent(originStationName)}&zo=${encodeURIComponent(destinationStationName)}`;
+}

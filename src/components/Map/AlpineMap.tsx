@@ -1,17 +1,17 @@
 import React, { useEffect, useRef, useState } from 'react';
 import maplibregl from 'maplibre-gl';
 import 'maplibre-gl/dist/maplibre-gl.css';
-import { SkiTour, AvalancheRegion } from '../../types';
-import { TRANSIT_LINES, KEY_STATIONS, ORIGIN_STATION } from '../../data/trainLines';
+import { SkiTour, AvalancheRegion, OriginStation } from '../../types';
+import { TRANSIT_LINES, KEY_STATIONS } from '../../data/trainLines';
 import { EAWS_COLORS } from '../../data/avalancheData';
-import { Layers, Mountain, Eye, EyeOff, Train, ShieldAlert, Compass } from 'lucide-react';
+import { Eye, EyeOff, Train, ShieldAlert, MapPin, Footprints } from 'lucide-react';
 
 interface AlpineMapProps {
   tours: SkiTour[];
   selectedTour: SkiTour | null;
   onSelectTour: (tour: SkiTour) => void;
   avalancheRegions: AvalancheRegion[];
-  highlightTransitLines?: string[];
+  originStation: OriginStation;
 }
 
 type BaseMapStyle = 'topo' | 'osm' | 'satellite';
@@ -21,37 +21,35 @@ export const AlpineMap: React.FC<AlpineMapProps> = ({
   selectedTour,
   onSelectTour,
   avalancheRegions,
-  highlightTransitLines = []
+  originStation
 }) => {
   const mapContainer = useRef<HTMLDivElement>(null);
   const mapRef = useRef<maplibregl.Map | null>(null);
   const markersRef = useRef<maplibregl.Marker[]>([]);
 
-  const [is3DMode, setIs3DMode] = useState(false);
   const [showAvalancheLayer, setShowAvalancheLayer] = useState(true);
   const [showTransitLayer, setShowTransitLayer] = useState(true);
   const [baseStyle, setBaseStyle] = useState<BaseMapStyle>('topo');
   const [hoveredInfo, setHoveredInfo] = useState<string | null>(null);
 
-  // Initialize Map
+  // Initialize Map in crisp, reliable 2D
   useEffect(() => {
     if (!mapContainer.current) return;
 
     const map = new maplibregl.Map({
       container: mapContainer.current,
       style: getMapStyle('topo'),
-      center: [10.80, 47.65], // Center between Augsburg & Allgäu/Wetterstein
-      zoom: 8.4,
+      center: [10.80, 47.65], // Center between Augsburg & Alps
+      zoom: 8.5,
       pitch: 0,
       bearing: 0,
-      maxPitch: 75
+      maxPitch: 0 // Keep strictly 2D for rock-solid stability
     });
 
-    map.addControl(new maplibregl.NavigationControl({ visualizePitch: true }), 'top-right');
+    map.addControl(new maplibregl.NavigationControl({ showCompass: false }), 'top-right');
     map.addControl(new maplibregl.ScaleControl({ unit: 'metric' }), 'bottom-left');
 
     map.on('load', () => {
-      setupTerrainSource(map);
       addAvalancheLayers(map, avalancheRegions);
       addTransitLayers(map);
       addActiveTrackLayers(map);
@@ -72,62 +70,12 @@ export const AlpineMap: React.FC<AlpineMapProps> = ({
 
     map.setStyle(getMapStyle(baseStyle));
     map.once('style.load', () => {
-      setupTerrainSource(map);
-      if (is3DMode) {
-        enable3DTerrain(map);
-      }
       addAvalancheLayers(map, avalancheRegions);
       addTransitLayers(map);
       addActiveTrackLayers(map);
       updateSelectedTourTrack(selectedTour);
     });
   }, [baseStyle]);
-
-  // Setup DEM Terrain Source
-  const setupTerrainSource = (map: maplibregl.Map) => {
-    if (!map.getSource('terrain-dem')) {
-      map.addSource('terrain-dem', {
-        type: 'raster-dem',
-        tiles: ['https://s3.amazonaws.com/elevation-tiles-prod/terrarium/{z}/{x}/{y}.png'],
-        encoding: 'terrarium',
-        tileSize: 256,
-        maxzoom: 15
-      });
-    }
-  };
-
-  const enable3DTerrain = (map: maplibregl.Map) => {
-    try {
-      if (map.getSource('terrain-dem')) {
-        map.setTerrain({ source: 'terrain-dem', exaggeration: 1.6 });
-        map.easeTo({ pitch: 58, bearing: -10, duration: 1200 });
-      }
-    } catch (e) {
-      console.warn('3D terrain setup note:', e);
-    }
-  };
-
-  const disable3DTerrain = (map: maplibregl.Map) => {
-    try {
-      map.setTerrain(null);
-      map.easeTo({ pitch: 0, bearing: 0, duration: 800 });
-    } catch (e) {
-      console.warn('3D terrain disable note:', e);
-    }
-  };
-
-  // Toggle 3D Terrain
-  const handleToggle3D = () => {
-    const map = mapRef.current;
-    if (!map) return;
-    const nextState = !is3DMode;
-    setIs3DMode(nextState);
-    if (nextState) {
-      enable3DTerrain(map);
-    } else {
-      disable3DTerrain(map);
-    }
-  };
 
   // Add Avalanche GeoJSON Layer
   const addAvalancheLayers = (map: maplibregl.Map, regions: AvalancheRegion[]) => {
@@ -140,9 +88,9 @@ export const AlpineMap: React.FC<AlpineMapProps> = ({
           name: reg.name,
           dangerLevel: reg.dangerLevel,
           label: reg.dangerLevelLabel,
-          elevationThreshold: reg.elevationThreshold,
+          isSeasonActive: reg.isSeasonActive,
           problems: reg.avalancheProblems.join(', '),
-          aspects: reg.aspects.join(', ')
+          lastUpdated: reg.lastUpdated
         },
         geometry: {
           type: 'Polygon',
@@ -161,6 +109,7 @@ export const AlpineMap: React.FC<AlpineMapProps> = ({
       data: geojson
     });
 
+    // Fill layer: if off-season, use subtle transparent slate; if active winter, use EAWS color
     map.addLayer({
       id: 'avalanche-fill',
       type: 'fill',
@@ -170,16 +119,26 @@ export const AlpineMap: React.FC<AlpineMapProps> = ({
       },
       paint: {
         'fill-color': [
-          'match',
-          ['get', 'dangerLevel'],
-          1, '#ccff66',
-          2, '#ffff00',
-          3, '#ff9900',
-          4, '#ff0000',
-          5, '#800000',
-          '#cccccc'
+          'case',
+          ['!', ['get', 'isSeasonActive']],
+          '#94a3b8', // Subtle neutral gray during off-season
+          [
+            'match',
+            ['get', 'dangerLevel'],
+            1, '#ccff66',
+            2, '#ffff00',
+            3, '#ff9900',
+            4, '#ff0000',
+            5, '#800000',
+            '#cccccc'
+          ]
         ],
-        'fill-opacity': 0.28
+        'fill-opacity': [
+          'case',
+          ['!', ['get', 'isSeasonActive']],
+          0.08, // Very subtle during off-season
+          0.28
+        ]
       }
     });
 
@@ -192,24 +151,24 @@ export const AlpineMap: React.FC<AlpineMapProps> = ({
       },
       paint: {
         'line-color': [
-          'match',
-          ['get', 'dangerLevel'],
-          1, '#65a30d',
-          2, '#ca8a04',
-          3, '#ea580c',
-          4, '#b91c1c',
-          5, '#450a0a',
-          '#666666'
+          'case',
+          ['!', ['get', 'isSeasonActive']],
+          '#64748b',
+          '#ea580c'
         ],
-        'line-width': 2,
-        'line-dasharray': [2, 2]
+        'line-width': 1.5,
+        'line-dasharray': [3, 2]
       }
     });
 
     map.on('mouseenter', 'avalanche-fill', (e) => {
       if (e.features && e.features[0]) {
         const props = e.features[0].properties;
-        setHoveredInfo(`⚠️ Lawinengebiet: ${props.name} | Stufe ${props.dangerLevel} (${props.label}) | Probleme: ${props.problems}`);
+        if (!props.isSeasonActive) {
+          setHoveredInfo(`❄️ ${props.name}: Saisonpause (Lagebericht startet im Winter)`);
+        } else {
+          setHoveredInfo(`⚠️ Lawinengebiet: ${props.name} | Stufe ${props.dangerLevel} (${props.label})`);
+        }
       }
     });
 
@@ -248,7 +207,6 @@ export const AlpineMap: React.FC<AlpineMapProps> = ({
       data: geojson
     });
 
-    // Railway glow / casing
     map.addLayer({
       id: 'transit-lines-casing',
       type: 'line',
@@ -260,12 +218,11 @@ export const AlpineMap: React.FC<AlpineMapProps> = ({
       },
       paint: {
         'line-color': '#ffffff',
-        'line-width': 6,
-        'line-opacity': 0.8
+        'line-width': 5,
+        'line-opacity': 0.85
       }
     });
 
-    // Railway line
     map.addLayer({
       id: 'transit-lines',
       type: 'line',
@@ -277,7 +234,7 @@ export const AlpineMap: React.FC<AlpineMapProps> = ({
       },
       paint: {
         'line-color': ['get', 'color'],
-        'line-width': 3.5,
+        'line-width': 3,
         'line-dasharray': [
           'case',
           ['==', ['get', 'category'], 'bus'],
@@ -290,7 +247,7 @@ export const AlpineMap: React.FC<AlpineMapProps> = ({
     map.on('mouseenter', 'transit-lines', (e) => {
       if (e.features && e.features[0]) {
         const props = e.features[0].properties;
-        setHoveredInfo(`🚆 Öffi-Linie: ${props.name} | Deutschland-Ticket: ${props.dTicket}`);
+        setHoveredInfo(`🚆 ${props.name} | D-Ticket: ${props.dTicket}`);
       }
     });
 
@@ -299,17 +256,12 @@ export const AlpineMap: React.FC<AlpineMapProps> = ({
     });
   };
 
-  // Add Active Tour GPX Track Layers
+  // Add Active Tour Track Layers
   const addActiveTrackLayers = (map: maplibregl.Map) => {
-    const emptyGeoJson: GeoJSON.FeatureCollection = {
-      type: 'FeatureCollection',
-      features: []
-    };
-
     if (!map.getSource('active-tour-track')) {
       map.addSource('active-tour-track', {
         type: 'geojson',
-        data: emptyGeoJson
+        data: { type: 'FeatureCollection', features: [] }
       });
 
       map.addLayer({
@@ -318,10 +270,10 @@ export const AlpineMap: React.FC<AlpineMapProps> = ({
         source: 'active-tour-track',
         layout: { 'line-cap': 'round', 'line-join': 'round' },
         paint: {
-          'line-color': '#38bdf8',
-          'line-width': 8,
-          'line-opacity': 0.6,
-          'line-blur': 3
+          'line-color': '#0284c7',
+          'line-width': 7,
+          'line-opacity': 0.5,
+          'line-blur': 2
         }
       });
 
@@ -331,14 +283,13 @@ export const AlpineMap: React.FC<AlpineMapProps> = ({
         source: 'active-tour-track',
         layout: { 'line-cap': 'round', 'line-join': 'round' },
         paint: {
-          'line-color': '#0284c7',
-          'line-width': 4
+          'line-color': '#0369a1',
+          'line-width': 3.5
         }
       });
     }
   };
 
-  // Update track when selected tour changes
   const updateSelectedTourTrack = (tour: SkiTour | null) => {
     const map = mapRef.current;
     if (!map || !map.getSource('active-tour-track')) return;
@@ -351,7 +302,7 @@ export const AlpineMap: React.FC<AlpineMapProps> = ({
       return;
     }
 
-    const trackFeature: GeoJSON.FeatureCollection = {
+    (map.getSource('active-tour-track') as maplibregl.GeoJSONSource).setData({
       type: 'FeatureCollection',
       features: [
         {
@@ -363,9 +314,7 @@ export const AlpineMap: React.FC<AlpineMapProps> = ({
           }
         }
       ]
-    };
-
-    (map.getSource('active-tour-track') as maplibregl.GeoJSONSource).setData(trackFeature);
+    });
   };
 
   useEffect(() => {
@@ -391,7 +340,7 @@ export const AlpineMap: React.FC<AlpineMapProps> = ({
     }
   }, [showAvalancheLayer, showTransitLayer]);
 
-  // Render Tour Summit Markers & Station Markers
+  // Render Tour Markers & Origin Pin
   useEffect(() => {
     const map = mapRef.current;
     if (!map) return;
@@ -400,22 +349,22 @@ export const AlpineMap: React.FC<AlpineMapProps> = ({
     markersRef.current.forEach(m => m.remove());
     markersRef.current = [];
 
-    // Origin Station: Augsburg Haunstetter Straße Marker
+    // Origin Station Pin (Updates dynamically when originStation changes!)
     const originEl = document.createElement('div');
     originEl.className = 'flex flex-col items-center cursor-pointer group z-20';
     originEl.innerHTML = `
       <div class="px-2.5 py-1 bg-red-600 text-white font-bold text-xs rounded-full shadow-lg border-2 border-white flex items-center space-x-1 animate-pulse">
-        <span>📍 Start: Haunstetter Str.</span>
+        <span>📍 Start: ${originStation.name}</span>
       </div>
       <div class="w-2.5 h-2.5 bg-red-600 rotate-45 -mt-1 shadow-sm"></div>
     `;
     const originMarker = new maplibregl.Marker({ element: originEl })
-      .setLngLat(ORIGIN_STATION.coordinates)
+      .setLngLat(originStation.coordinates)
       .addTo(map);
     markersRef.current.push(originMarker);
 
-    // Key Stations Markers
-    KEY_STATIONS.filter(s => !s.isOrigin && s.isKeyHub).forEach(station => {
+    // Key Alpine Transit Stations
+    KEY_STATIONS.filter(s => s.id !== originStation.id && s.isKeyHub).forEach(station => {
       const stEl = document.createElement('div');
       stEl.className = 'w-3 h-3 bg-white border-2 border-slate-700 rounded-full shadow hover:scale-125 transition-transform';
       stEl.title = `Bahnhof: ${station.name}`;
@@ -456,8 +405,7 @@ export const AlpineMap: React.FC<AlpineMapProps> = ({
         map.flyTo({
           center: tour.coordinates.summit,
           zoom: Math.max(map.getZoom(), 11.5),
-          pitch: is3DMode ? 55 : 0,
-          duration: 1200
+          duration: 900
         });
       });
 
@@ -467,9 +415,9 @@ export const AlpineMap: React.FC<AlpineMapProps> = ({
 
       markersRef.current.push(marker);
     });
-  }, [tours, selectedTour, is3DMode]);
+  }, [tours, selectedTour, originStation]);
 
-  // When selectedTour changes from outside, fly to it
+  // Fly to selected tour
   useEffect(() => {
     const map = mapRef.current;
     if (!map || !selectedTour) return;
@@ -477,8 +425,7 @@ export const AlpineMap: React.FC<AlpineMapProps> = ({
     map.flyTo({
       center: selectedTour.coordinates.summit,
       zoom: 11.5,
-      pitch: is3DMode ? 55 : 0,
-      duration: 1000
+      duration: 800
     });
   }, [selectedTour]);
 
@@ -496,7 +443,6 @@ export const AlpineMap: React.FC<AlpineMapProps> = ({
 
       {/* Floating Map Controls Toolbar */}
       <div className="absolute top-3 left-3 z-10 flex flex-col space-y-2">
-        {/* Layer Toggles Group */}
         <div className="bg-white/95 backdrop-blur rounded-xl shadow-lg border border-slate-200/80 p-1.5 flex flex-col space-y-1 text-xs">
           {/* Base Layer Switcher */}
           <div className="flex rounded-lg bg-slate-100 p-0.5">
@@ -505,7 +451,7 @@ export const AlpineMap: React.FC<AlpineMapProps> = ({
               className={`px-2 py-1 rounded-md font-medium text-[11px] transition-colors ${
                 baseStyle === 'topo' ? 'bg-white text-alpine-700 shadow-sm' : 'text-slate-600 hover:text-slate-900'
               }`}
-              title="Topografische Reliefkarte"
+              title="Topografische Reliefkarte (OpenTopoMap)"
             >
               Topo
             </button>
@@ -531,24 +477,6 @@ export const AlpineMap: React.FC<AlpineMapProps> = ({
 
           <div className="h-px bg-slate-200 my-0.5" />
 
-          {/* 3D Terrain Relief Toggle */}
-          <button
-            onClick={handleToggle3D}
-            className={`flex items-center justify-between px-2.5 py-1.5 rounded-lg transition-colors font-medium ${
-              is3DMode 
-                ? 'bg-alpine-600 text-white shadow-sm' 
-                : 'text-slate-700 hover:bg-slate-100'
-            }`}
-          >
-            <span className="flex items-center space-x-1.5">
-              <Mountain className="w-3.5 h-3.5" />
-              <span>3D-Relief</span>
-            </span>
-            <span className="text-[10px] uppercase font-bold ml-2">
-              {is3DMode ? 'AN' : 'AUS'}
-            </span>
-          </button>
-
           {/* Avalanche Warning Layer Toggle */}
           <button
             onClick={() => setShowAvalancheLayer(!showAvalancheLayer)}
@@ -560,7 +488,7 @@ export const AlpineMap: React.FC<AlpineMapProps> = ({
           >
             <span className="flex items-center space-x-1.5">
               <ShieldAlert className="w-3.5 h-3.5 text-amber-600" />
-              <span>Lawinenwarndienst</span>
+              <span>Lawinengebiete</span>
             </span>
             {showAvalancheLayer ? <Eye className="w-3.5 h-3.5 text-amber-700" /> : <EyeOff className="w-3.5 h-3.5" />}
           </button>
@@ -587,19 +515,7 @@ export const AlpineMap: React.FC<AlpineMapProps> = ({
       <div className="absolute bottom-6 right-3 z-10 bg-white/95 backdrop-blur-md rounded-xl p-2.5 shadow-lg border border-slate-200/90 text-xs hidden sm:block max-w-[230px]">
         <div className="font-bold text-slate-800 mb-1.5 flex items-center justify-between">
           <span>Legende</span>
-          <span className="text-[10px] text-slate-500 font-normal">Ab Haunstetter Str.</span>
-        </div>
-
-        {/* EAWS Hazard Scale */}
-        <div className="mb-2">
-          <div className="text-[10px] font-semibold text-slate-600 mb-1">Lawinenwarnstufe (EAWS):</div>
-          <div className="grid grid-cols-5 gap-1 text-[10px] text-center font-bold">
-            <span className="bg-[#ccff66] text-slate-800 py-0.5 rounded" title="Stufe 1 - Gering">1</span>
-            <span className="bg-[#ffff00] text-slate-800 py-0.5 rounded" title="Stufe 2 - Mäßig">2</span>
-            <span className="bg-[#ff9900] text-white py-0.5 rounded" title="Stufe 3 - Erheblich">3</span>
-            <span className="bg-[#ff0000] text-white py-0.5 rounded" title="Stufe 4 - Groß">4</span>
-            <span className="bg-[#800000] text-white py-0.5 rounded" title="Stufe 5 - Sehr groß">5</span>
-          </div>
+          <span className="text-[10px] text-slate-500 font-normal">Start: {originStation.name}</span>
         </div>
 
         {/* Transit lines preview */}
@@ -626,7 +542,7 @@ export const AlpineMap: React.FC<AlpineMapProps> = ({
   );
 };
 
-// MapLibre Styles Helper
+// MapLibre Styles Helper (Strict 2D)
 function getMapStyle(style: BaseMapStyle): maplibregl.StyleSpecification {
   if (style === 'osm') {
     return {
@@ -640,13 +556,7 @@ function getMapStyle(style: BaseMapStyle): maplibregl.StyleSpecification {
         }
       },
       layers: [
-        {
-          id: 'osm-layer',
-          type: 'raster',
-          source: 'osm-tiles',
-          minzoom: 0,
-          maxzoom: 19
-        }
+        { id: 'osm-layer', type: 'raster', source: 'osm-tiles', minzoom: 0, maxzoom: 19 }
       ]
     };
   }
@@ -659,22 +569,15 @@ function getMapStyle(style: BaseMapStyle): maplibregl.StyleSpecification {
           type: 'raster',
           tiles: ['https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}'],
           tileSize: 256,
-          attribution: 'Tiles &copy; Esri, i-cubed, USDA, USGS, AEX, GeoEye, Getmapping, Aerogrid, IGN, IGP, UPR-EGP, and the GIS User Community'
+          attribution: 'Tiles &copy; Esri, i-cubed, USDA, USGS'
         }
       },
       layers: [
-        {
-          id: 'satellite-layer',
-          type: 'raster',
-          source: 'satellite-tiles',
-          minzoom: 0,
-          maxzoom: 19
-        }
+        { id: 'satellite-layer', type: 'raster', source: 'satellite-tiles', minzoom: 0, maxzoom: 19 }
       ]
     };
   }
 
-  // Default Topographic Style (OpenTopoMap with clean hillshade contours)
   return {
     version: 8,
     sources: {
@@ -686,18 +589,11 @@ function getMapStyle(style: BaseMapStyle): maplibregl.StyleSpecification {
           'https://c.tile.opentopomap.org/{z}/{x}/{y}.png'
         ],
         tileSize: 256,
-        attribution: 'Kartendaten: &copy; <a href="https://openstreetmap.org/copyright">OpenStreetMap</a>-Mitwirkende, SRTM | Kartendarstellung: &copy; <a href="http://opentopomap.org">OpenTopoMap</a>'
+        attribution: 'Kartendaten: &copy; OpenStreetMap, SRTM | OpenTopoMap'
       }
     },
     layers: [
-      {
-        id: 'opentopomap-layer',
-        type: 'raster',
-        source: 'opentopomap-tiles',
-        minzoom: 0,
-        maxzoom: 18
-      }
+      { id: 'opentopomap-layer', type: 'raster', source: 'opentopomap-tiles', minzoom: 0, maxzoom: 18 }
     ]
   };
 }
-

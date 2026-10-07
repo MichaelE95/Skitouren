@@ -11,19 +11,30 @@ export type DTicketStatus = '100% gültig' | 'Zusatzkosten nötig';
 
 export interface TransitStep {
   station: string;
-  action: 'departure' | 'transfer' | 'arrival' | 'bus';
+  action: 'departure' | 'transfer' | 'arrival' | 'bus' | 'walk';
   line?: string;
   timeHint?: string;
   note?: string;
 }
 
+export interface OriginStation {
+  id: string;
+  name: string;
+  ibnr: string;
+  coordinates: [number, number]; // [lng, lat]
+  note?: string;
+}
+
 export interface TransitInfo {
-  origin: string; // "Augsburg Haunstetter Str."
-  destinationStation: string;
-  destinationIbnr: string; // DB Station IBNR (e.g. 8004593 for Oberstdorf)
-  lines: string[]; // e.g. ["RB 69", "RE 17", "Walserbus 1"]
+  origin: string; // e.g. "Augsburg Haunstetter Str."
+  destinationStation: string; // Display destination (e.g. "Baad", "Riezlern Kanzelwandbahn")
+  cleanDbStationName: string; // Sanitized station name recognized by bahn.de (e.g. "Oberstdorf", "Pfronten-Steinach")
+  destinationIbnr: string; // DB Station IBNR
+  lines: string[]; // e.g. ["BRB RB 69", "RE 17", "Walserbus 1"]
   transfers: number;
   approxTotalMinutes: number;
+  walkingDistanceMeters: number;
+  walkingDurationMinutes: number;
   dTicketValidity: DTicketStatus;
   extraCostEuro: number;
   transitDescription: string;
@@ -38,12 +49,23 @@ export interface DavHut {
   notes?: string;
 }
 
+export interface UserTourMeta {
+  tourId: string;
+  peakName: string;
+  skitourenguruUrl: string;
+  isVerifiedUrl: boolean;
+  rating: number | null; // null = noch nicht gemacht / unrated; 1 to 5
+  comment: string;
+  manualStationOverride?: string;
+  lastModified?: string;
+}
+
 export interface SkiTour {
   id: string;
   name: string;
   subheading: string;
-  mountainRange: string; // e.g. "Allgäuer Alpen", "Außerfern / Ammergau", "Wetterstein / Mieming", "Karwendel", "Tannheimer Berge"
-  valley: string; // e.g. "Kleinwalsertal", "Tannheimer Tal", "Garmisch-Partenkirchen", "Außerfern", "Ostallgäu"
+  mountainRange: string;
+  valley: string;
   type: 'day' | 'multiday';
   isPiste: boolean;
   
@@ -55,24 +77,25 @@ export interface SkiTour {
   estimatedTourDurationHours: number;
 
   // Technical ratings
-  difficulty: SACGrade; // e.g. "WS+", "ZS-"
-  difficultyCategory: SACCategory; // "WS", "ZS" for quick filter
-  maxSafeAvalancheLevel: number; // typical limit for standard route (e.g. 2 for open terrain, 3/4 for piste)
-  exposition: string; // e.g. "N, NO", "O, SO", "W"
+  difficulty: SACGrade;
+  difficultyCategory: SACCategory;
+  maxSafeAvalancheLevel: number;
+  exposition: string;
 
   // Geolocation [longitude, latitude]
   coordinates: {
     trailhead: [number, number];
     summit: [number, number];
   };
-  gpxTrackCoordinates: [number, number][]; // Array of [lng, lat] coordinate pairs for route polyline
+  gpxTrackCoordinates: [number, number][];
 
-  // Public transit from Augsburg Haunstetter Straße
+  // Public transit from origin station
   transit: TransitInfo;
 
   // External links & resources
   links: {
     skitourenguruUrl: string;
+    isVerifiedUrl: boolean; // false triggers a yellow verification warning badge
     gpxDownloadUrl?: string;
     alpenvereinUrl?: string;
     webcamUrl?: string;
@@ -81,10 +104,11 @@ export interface SkiTour {
   // Multi-day & DAV huts
   huts?: DavHut[];
 
-  // Curated community & friend ratings/tips
-  rating: number; // 1 to 5
+  // User metadata (rating, comment)
+  rating: number | null; // null = not yet done
   curatedComment: string;
   tips: string[];
+  isCustomTour?: boolean; // true if added by user
 }
 
 export interface AvalancheRegion {
@@ -92,26 +116,27 @@ export interface AvalancheRegion {
   name: string;
   dangerLevel: 1 | 2 | 3 | 4 | 5;
   dangerLevelLabel: 'Gering' | 'Mäßig' | 'Erheblich' | 'Groß' | 'Sehr groß';
-  elevationThreshold?: number; // e.g. 1800m
+  elevationThreshold?: number;
   dangerLevelAbove?: number;
   dangerLevelBelow?: number;
-  aspects: string[]; // ["N", "NE", "NW", ...]
-  avalancheProblems: string[]; // e.g. ["Triebschnee", "Altschneeproblem"]
+  aspects: string[];
+  avalancheProblems: string[];
   lastUpdated: string;
-  polygonCoordinates: [number, number][][]; // [[[lng, lat], ...]]
+  isSeasonActive: boolean; // false during off-season (e.g. October)
+  polygonCoordinates: [number, number][][];
 }
 
 export interface FilterState {
   searchQuery: string;
   onlyDTicket: boolean;
   onlyPiste: boolean;
-  maxTransitDurationMinutes: number; // e.g. 90, 120, 150, 180, 240
-  maxAvalancheLevel: number; // 1, 2, 3, 4, 5
+  maxTransitDurationMinutes: number;
+  maxAvalancheLevel: number;
   minElevationGain: number;
   maxElevationGain: number;
-  selectedDifficulties: SACCategory[]; // ['L', 'WS', 'ZS', 'S']
+  selectedDifficulties: SACCategory[];
   selectedRanges: string[];
   tourType: 'all' | 'day' | 'multiday';
+  ratingFilter: 'all' | 'unrated' | 'rated_only' | 'min_4_stars';
   sortBy: 'transitTime' | 'elevationGain' | 'rating' | 'difficulty';
 }
-

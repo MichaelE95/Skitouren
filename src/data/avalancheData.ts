@@ -1,17 +1,21 @@
 import { AvalancheRegion } from '../types';
 
+// In October/autumn, avalanche warning services (LWD Bayern, Lawine Tirol) are officially in off-season pause.
+export const IS_AVALANCHE_SEASON_ACTIVE = false;
+
 export const FALLBACK_AVALANCHE_REGIONS: AvalancheRegion[] = [
   {
     id: 'allgaeu-alps',
     name: 'Allgäuer Alpen (Bayern & Kleinwalsertal)',
-    dangerLevel: 2,
-    dangerLevelLabel: 'Mäßig',
-    elevationThreshold: 1800,
-    dangerLevelAbove: 2,
+    dangerLevel: 1,
+    dangerLevelLabel: 'Gering',
+    elevationThreshold: 2000,
+    dangerLevelAbove: 1,
     dangerLevelBelow: 1,
-    aspects: ['N', 'NE', 'NW', 'E'],
-    avalancheProblems: ['Triebschnee', 'Altschneeproblem in schattigen Steilhängen'],
-    lastUpdated: 'Heute, 07:30 Uhr (LWD Bayern & Vorarlberg)',
+    aspects: ['N', 'NE'],
+    avalancheProblems: ['Off-Season: Keine flächendeckende Schneedecke'],
+    lastUpdated: 'Off-Season: Tägliche Lageberichte starten im Winter (ca. Dezember)',
+    isSeasonActive: IS_AVALANCHE_SEASON_ACTIVE,
     polygonCoordinates: [
       [
         [10.05, 47.50],
@@ -25,14 +29,15 @@ export const FALLBACK_AVALANCHE_REGIONS: AvalancheRegion[] = [
   {
     id: 'tannheimer-berge',
     name: 'Tannheimer Berge & Pfronten',
-    dangerLevel: 2,
-    dangerLevelLabel: 'Mäßig',
-    elevationThreshold: 1700,
-    dangerLevelAbove: 2,
+    dangerLevel: 1,
+    dangerLevelLabel: 'Gering',
+    elevationThreshold: 2000,
+    dangerLevelAbove: 1,
     dangerLevelBelow: 1,
-    aspects: ['N', 'NE', 'E'],
-    avalancheProblems: ['Triebschnee in Rinnen und Mulden'],
-    lastUpdated: 'Heute, 07:30 Uhr (Lawine Tirol)',
+    aspects: ['N', 'NE'],
+    avalancheProblems: ['Off-Season'],
+    lastUpdated: 'Off-Season: Start ca. Dezember',
+    isSeasonActive: IS_AVALANCHE_SEASON_ACTIVE,
     polygonCoordinates: [
       [
         [10.45, 47.56],
@@ -45,15 +50,16 @@ export const FALLBACK_AVALANCHE_REGIONS: AvalancheRegion[] = [
   },
   {
     id: 'ammergau-ausserfern',
-    name: 'Ammergauer Alpen & Außerfern (Lähn, Lermoos)',
-    dangerLevel: 2,
-    dangerLevelLabel: 'Mäßig',
-    elevationThreshold: 1800,
-    dangerLevelAbove: 2,
+    name: 'Ammergauer Alpen & Außerfern',
+    dangerLevel: 1,
+    dangerLevelLabel: 'Gering',
+    elevationThreshold: 2000,
+    dangerLevelAbove: 1,
     dangerLevelBelow: 1,
-    aspects: ['N', 'NW', 'NE'],
-    avalancheProblems: ['Frischer Triebschnee', 'Gleitschneerutsche an steilen Grashängen'],
-    lastUpdated: 'Heute, 07:30 Uhr (Lawine Tirol & LfU Bayern)',
+    aspects: ['N', 'NW'],
+    avalancheProblems: ['Off-Season'],
+    lastUpdated: 'Off-Season: Start ca. Dezember',
+    isSeasonActive: IS_AVALANCHE_SEASON_ACTIVE,
     polygonCoordinates: [
       [
         [10.70, 47.60],
@@ -66,15 +72,16 @@ export const FALLBACK_AVALANCHE_REGIONS: AvalancheRegion[] = [
   },
   {
     id: 'wetterstein-mieming',
-    name: 'Wetterstein, Mieminger Kette & Zugspitzplatt',
-    dangerLevel: 2,
-    dangerLevelLabel: 'Mäßig',
+    name: 'Wetterstein & Mieminger Kette',
+    dangerLevel: 1,
+    dangerLevelLabel: 'Gering',
     elevationThreshold: 2000,
-    dangerLevelAbove: 2,
+    dangerLevelAbove: 1,
     dangerLevelBelow: 1,
-    aspects: ['N', 'NE', 'NW', 'E', 'SE'],
-    avalancheProblems: ['Windverfrachteter Schnee im Hochgebirge', 'Kammnahe Einwehungen'],
-    lastUpdated: 'Heute, 07:30 Uhr (LWD Bayern & Tirol)',
+    aspects: ['N', 'NE'],
+    avalancheProblems: ['Off-Season'],
+    lastUpdated: 'Off-Season: Start ca. Dezember',
+    isSeasonActive: IS_AVALANCHE_SEASON_ACTIVE,
     polygonCoordinates: [
       [
         [10.90, 47.48],
@@ -87,15 +94,16 @@ export const FALLBACK_AVALANCHE_REGIONS: AvalancheRegion[] = [
   },
   {
     id: 'karwendel',
-    name: 'Karwendelgebirge (Mittenwald, Scharnitz, Seefeld)',
-    dangerLevel: 2,
-    dangerLevelLabel: 'Mäßig',
-    elevationThreshold: 1900,
-    dangerLevelAbove: 2,
+    name: 'Karwendelgebirge',
+    dangerLevel: 1,
+    dangerLevelLabel: 'Gering',
+    elevationThreshold: 2000,
+    dangerLevelAbove: 1,
     dangerLevelBelow: 1,
-    aspects: ['N', 'NE', 'NW'],
-    avalancheProblems: ['Altschneeproblem in Rinnen', 'Triebschnee oberhalb der Waldgrenze'],
-    lastUpdated: 'Heute, 07:30 Uhr (Lawine Tirol & LfU Bayern)',
+    aspects: ['N', 'NE'],
+    avalancheProblems: ['Off-Season'],
+    lastUpdated: 'Off-Season: Start ca. Dezember',
+    isSeasonActive: IS_AVALANCHE_SEASON_ACTIVE,
     polygonCoordinates: [
       [
         [11.20, 47.50],
@@ -115,4 +123,3 @@ export const EAWS_COLORS: Record<number, { bg: string; text: string; label: stri
   4: { bg: '#ff0000', text: '#ffffff', label: '4 - Groß', border: '#dc2626' },
   5: { bg: '#800000', text: '#ffffff', label: '5 - Sehr groß', border: '#450a0a' }
 };
-

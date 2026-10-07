@@ -1,20 +1,46 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { SKI_TOURS } from './data/tours';
 import { FALLBACK_AVALANCHE_REGIONS } from './data/avalancheData';
+import { DEFAULT_ORIGIN_STATION, POPULAR_ORIGIN_STATIONS } from './data/trainLines';
 import { fetchAvalancheRegions, getTourAvalancheRisk } from './services/avalancheService';
-import { SkiTour, FilterState, AvalancheRegion } from './types';
+import {
+  loadUserMeta,
+  saveUserTourMeta,
+  downloadUserMetaJson,
+  loadCustomTours
+} from './data/userMeta';
+import { SkiTour, FilterState, AvalancheRegion, OriginStation } from './types';
 import { Navbar } from './components/Header/Navbar';
 import { AlpineMap } from './components/Map/AlpineMap';
 import { FilterSidebar } from './components/Filters/FilterSidebar';
 import { TourCard } from './components/Tours/TourCard';
 import { TourDetailModal } from './components/Tours/TourDetailModal';
-import { SlidersHorizontal, Mountain, Train, MapPin, X } from 'lucide-react';
+import { AddTourModal } from './components/Tours/AddTourModal';
+import { SlidersHorizontal, Mountain, Train } from 'lucide-react';
+
+const ORIGIN_STORAGE_KEY = 'skitour_active_origin_v1';
 
 export const App: React.FC = () => {
   const [selectedTour, setSelectedTour] = useState<SkiTour | null>(null);
   const [avalancheRegions, setAvalancheRegions] = useState<AvalancheRegion[]>(FALLBACK_AVALANCHE_REGIONS);
   const [isFilterDrawerOpen, setIsFilterDrawerOpen] = useState(false);
+  const [isAddTourModalOpen, setIsAddTourModalOpen] = useState(false);
   const [mobileView, setMobileView] = useState<'map' | 'list'>('map');
+
+  // Active Origin Station
+  const [originStation, setOriginStation] = useState<OriginStation>(() => {
+    try {
+      const saved = localStorage.getItem(ORIGIN_STORAGE_KEY);
+      if (saved) return JSON.parse(saved);
+    } catch {}
+    return DEFAULT_ORIGIN_STATION;
+  });
+
+  // User metadata (ratings & notes)
+  const [userMetaMap, setUserMetaMap] = useState(() => loadUserMeta());
+
+  // Custom user-created tours
+  const [customTours, setCustomTours] = useState<SkiTour[]>(() => loadCustomTours());
 
   // Load live avalanche bulletins on mount
   useEffect(() => {
@@ -22,6 +48,44 @@ export const App: React.FC = () => {
       setAvalancheRegions(regions);
     });
   }, []);
+
+  const handleChangeOrigin = (newOrigin: OriginStation) => {
+    setOriginStation(newOrigin);
+    try {
+      localStorage.setItem(ORIGIN_STORAGE_KEY, JSON.stringify(newOrigin));
+    } catch {}
+  };
+
+  // Merge base tours + custom tours + user metadata (ratings & comments)
+  const allTours: SkiTour[] = useMemo(() => {
+    const combined = [...SKI_TOURS, ...customTours];
+
+    return combined.map(tour => {
+      const meta = userMetaMap[tour.id];
+      const rating = meta && meta.rating !== undefined ? meta.rating : tour.rating;
+      const comment = meta && meta.comment !== undefined ? meta.comment : tour.curatedComment;
+      const guruUrl = meta && meta.skitourenguruUrl ? meta.skitourenguruUrl : tour.links.skitourenguruUrl;
+      const isVerified = meta && meta.isVerifiedUrl !== undefined ? meta.isVerifiedUrl : tour.links.isVerifiedUrl;
+
+      // Adjust origin label if changed
+      const transitCopy = {
+        ...tour.transit,
+        origin: originStation.name
+      };
+
+      return {
+        ...tour,
+        rating,
+        curatedComment: comment,
+        links: {
+          ...tour.links,
+          skitourenguruUrl: guruUrl,
+          isVerifiedUrl: isVerified
+        },
+        transit: transitCopy
+      };
+    });
+  }, [userMetaMap, customTours, originStation]);
 
   // Filter State
   const [filters, setFilters] = useState<FilterState>({
@@ -35,17 +99,18 @@ export const App: React.FC = () => {
     selectedDifficulties: [],
     selectedRanges: [],
     tourType: 'all',
+    ratingFilter: 'all',
     sortBy: 'transitTime'
   });
 
-  // Unique mountain ranges for filter chips
+  // Unique mountain ranges
   const availableRanges = useMemo(() => {
-    return Array.from(new Set(SKI_TOURS.map(t => t.mountainRange))).sort();
-  }, []);
+    return Array.from(new Set(allTours.map(t => t.mountainRange))).sort();
+  }, [allTours]);
 
   // Filter and Sort Tours
   const filteredTours = useMemo(() => {
-    return SKI_TOURS.filter(tour => {
+    return allTours.filter(tour => {
       // Text search
       if (filters.searchQuery.trim() !== '') {
         const q = filters.searchQuery.toLowerCase();
@@ -57,6 +122,15 @@ export const App: React.FC = () => {
           tour.transit.lines.some(l => l.toLowerCase().includes(q)) ||
           tour.transit.destinationStation.toLowerCase().includes(q);
         if (!textMatch) return false;
+      }
+
+      // Rating filter
+      if (filters.ratingFilter === 'unrated') {
+        if (tour.rating !== null) return false;
+      } else if (filters.ratingFilter === 'rated_only') {
+        if (tour.rating === null) return false;
+      } else if (filters.ratingFilter === 'min_4_stars') {
+        if (tour.rating === null || tour.rating < 4) return false;
       }
 
       // 100% Deutschland-Ticket
@@ -74,9 +148,9 @@ export const App: React.FC = () => {
         return false;
       }
 
-      // Avalanche risk level
+      // Avalanche risk level (only filter if winter season is active)
       const risk = getTourAvalancheRisk(tour, avalancheRegions);
-      if (risk.dangerLevel > filters.maxAvalancheLevel) {
+      if (risk.isSeasonActive && risk.dangerLevel > filters.maxAvalancheLevel) {
         return false;
       }
 
@@ -114,7 +188,7 @@ export const App: React.FC = () => {
         case 'elevationGain':
           return b.elevationGain - a.elevationGain;
         case 'rating':
-          return b.rating - a.rating;
+          return (b.rating || 0) - (a.rating || 0);
         case 'difficulty':
           const order = { 'L': 1, 'WS': 2, 'ZS': 3, 'S': 4 };
           return (order[a.difficultyCategory] || 0) - (order[b.difficultyCategory] || 0);
@@ -122,13 +196,42 @@ export const App: React.FC = () => {
           return 0;
       }
     });
-  }, [filters, avalancheRegions]);
+  }, [allTours, filters, avalancheRegions]);
 
   const handleSelectTour = (tour: SkiTour) => {
     setSelectedTour(tour);
     if (window.innerWidth < 768) {
       setMobileView('map');
     }
+  };
+
+  const handleRatingChange = (tourId: string, newRating: number | null) => {
+    const updated = saveUserTourMeta(tourId, { rating: newRating });
+    setUserMetaMap(updated);
+  };
+
+  const handleUpdateTourMeta = (
+    tourId: string,
+    rating: number | null,
+    comment: string,
+    skitourenguruUrl?: string
+  ) => {
+    const isVerified = skitourenguruUrl
+      ? skitourenguruUrl.includes('?id=') || skitourenguruUrl.includes('/routes/')
+      : undefined;
+
+    const updated = saveUserTourMeta(tourId, {
+      rating,
+      comment,
+      skitourenguruUrl,
+      isVerifiedUrl: isVerified
+    });
+    setUserMetaMap(updated);
+  };
+
+  const handleTourAdded = (newTour: SkiTour) => {
+    setCustomTours(prev => [...prev, newTour]);
+    setSelectedTour(newTour);
   };
 
   return (
@@ -140,11 +243,15 @@ export const App: React.FC = () => {
         setMobileView={setMobileView}
         toggleFilterDrawer={() => setIsFilterDrawerOpen(!isFilterDrawerOpen)}
         isFilterDrawerOpen={isFilterDrawerOpen}
+        originStation={originStation}
+        onChangeOrigin={handleChangeOrigin}
+        onOpenAddTour={() => setIsAddTourModalOpen(true)}
+        onExportJson={downloadUserMetaJson}
       />
 
       {/* Main Content Area */}
       <div className="flex-1 flex overflow-hidden relative">
-        {/* Desktop Left Column: Tour List & Filters Panel */}
+        {/* Left Column: Tour List & Filters Panel */}
         <div
           className={`w-full md:w-[420px] lg:w-[460px] flex flex-col bg-white border-r border-slate-200 z-20 shrink-0 transition-transform md:translate-x-0 ${
             mobileView === 'list' ? 'block' : 'hidden md:flex'
@@ -152,16 +259,16 @@ export const App: React.FC = () => {
         >
           {/* Filter Header Banner */}
           <div className="p-3 bg-slate-900 text-white flex items-center justify-between text-xs border-b border-slate-800">
-            <div className="flex items-center space-x-2">
-              <Train className="w-4 h-4 text-alpine-400" />
-              <span className="font-bold">Öffi-Touren ab Augsburg Haunstetter Str.</span>
+            <div className="flex items-center space-x-2 truncate">
+              <Train className="w-4 h-4 text-alpine-400 shrink-0" />
+              <span className="font-bold truncate">Öffi-Touren ab {originStation.name}</span>
             </div>
             <button
               onClick={() => setIsFilterDrawerOpen(!isFilterDrawerOpen)}
-              className="text-[11px] font-bold text-alpine-300 hover:text-white flex items-center space-x-1"
+              className="text-[11px] font-bold text-alpine-300 hover:text-white flex items-center space-x-1 shrink-0 ml-2"
             >
               <SlidersHorizontal className="w-3.5 h-3.5" />
-              <span>{isFilterDrawerOpen ? 'Liste anzeigen' : 'Filter anpassen'}</span>
+              <span>{isFilterDrawerOpen ? 'Liste anzeigen' : 'Filter'}</span>
             </button>
           </div>
 
@@ -171,9 +278,10 @@ export const App: React.FC = () => {
               <FilterSidebar
                 filters={filters}
                 onFilterChange={setFilters}
-                totalToursCount={SKI_TOURS.length}
+                totalToursCount={allTours.length}
                 filteredToursCount={filteredTours.length}
                 availableRanges={availableRanges}
+                originStation={originStation}
               />
             </div>
           ) : (
@@ -181,7 +289,9 @@ export const App: React.FC = () => {
               {/* Tour List Header */}
               <div className="flex items-center justify-between px-1 text-xs text-slate-500 font-semibold">
                 <span>{filteredTours.length} Touren gefunden</span>
-                <span className="text-[11px] text-slate-400">Sortiert nach {filters.sortBy === 'transitTime' ? 'Fahrzeit' : filters.sortBy}</span>
+                <span className="text-[11px] text-slate-400">
+                  {filters.ratingFilter === 'unrated' ? 'Nur unbewertete' : ''}
+                </span>
               </div>
 
               {/* Tour Cards */}
@@ -192,7 +302,7 @@ export const App: React.FC = () => {
                   </div>
                   <h4 className="font-bold text-slate-800 text-sm">Keine passenden Touren gefunden</h4>
                   <p className="text-xs text-slate-500 max-w-xs mx-auto">
-                    Versuche, die Filterkriterien zu lockern (z.B. Fahrzeit erhöhen oder Lawinenstufe erweitern).
+                    Passe deine Filterkriterien an oder importiere eine neue Tour über den Button oben!
                   </p>
                   <button
                     onClick={() => setFilters({
@@ -206,6 +316,7 @@ export const App: React.FC = () => {
                       selectedDifficulties: [],
                       selectedRanges: [],
                       tourType: 'all',
+                      ratingFilter: 'all',
                       sortBy: 'transitTime'
                     })}
                     className="px-4 py-2 bg-alpine-600 text-white rounded-xl text-xs font-bold shadow-xs hover:bg-alpine-700 transition-colors"
@@ -221,6 +332,7 @@ export const App: React.FC = () => {
                     isSelected={selectedTour?.id === tour.id}
                     onSelect={handleSelectTour}
                     avalancheRegions={avalancheRegions}
+                    onRatingChange={handleRatingChange}
                   />
                 ))
               )}
@@ -228,7 +340,7 @@ export const App: React.FC = () => {
           )}
         </div>
 
-        {/* Right Area: Interactive MapLibre GL Alpine Map */}
+        {/* Right Area: Interactive MapLibre GL Alpine Map (2D) */}
         <div
           className={`flex-1 h-full relative ${
             mobileView === 'map' ? 'block' : 'hidden md:block'
@@ -239,19 +351,29 @@ export const App: React.FC = () => {
             selectedTour={selectedTour}
             onSelectTour={handleSelectTour}
             avalancheRegions={avalancheRegions}
+            originStation={originStation}
           />
         </div>
 
-        {/* Selected Tour Detail Drawer (slides in from right) */}
+        {/* Selected Tour Detail Drawer */}
         {selectedTour && (
           <TourDetailModal
             tour={selectedTour}
             onClose={() => setSelectedTour(null)}
             avalancheRegions={avalancheRegions}
+            originStation={originStation}
+            onUpdateTourMeta={handleUpdateTourMeta}
           />
         )}
+
+        {/* Add Tour Modal */}
+        <AddTourModal
+          isOpen={isAddTourModalOpen}
+          onClose={() => setIsAddTourModalOpen(false)}
+          originStation={originStation}
+          onTourAdded={handleTourAdded}
+        />
       </div>
     </div>
   );
 };
-

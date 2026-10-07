@@ -1,7 +1,7 @@
-import React, { useState } from 'react';
-import { SkiTour, AvalancheRegion } from '../../types';
+import React, { useState, useEffect } from 'react';
+import { SkiTour, AvalancheRegion, OriginStation } from '../../types';
 import { getTourAvalancheRisk } from '../../services/avalancheService';
-import { fetchLiveJourneys, LiveJourneyResult } from '../../services/transitService';
+import { fetchLiveJourneys, buildDbNavigatorUrl, LiveJourneyResult } from '../../services/transitService';
 import { downloadTourGpx } from '../../utils/gpxGenerator';
 import { EAWS_COLORS } from '../../data/avalancheData';
 import {
@@ -12,34 +12,52 @@ import {
   Clock,
   Euro,
   AlertTriangle,
-  TrendingUp,
-  Mountain,
-  Compass,
   Star,
-  CheckCircle2,
-  Calendar,
   RefreshCw,
   Home,
   MessageSquare,
   ShieldCheck,
-  ChevronRight
+  Footprints,
+  AlertCircle,
+  CheckCircle2,
+  Edit3
 } from 'lucide-react';
 
 interface TourDetailModalProps {
   tour: SkiTour | null;
   onClose: () => void;
   avalancheRegions: AvalancheRegion[];
+  originStation: OriginStation;
+  onUpdateTourMeta: (tourId: string, rating: number | null, comment: string, skitourenguruUrl?: string) => void;
 }
 
 export const TourDetailModal: React.FC<TourDetailModalProps> = ({
   tour,
   onClose,
-  avalancheRegions
+  avalancheRegions,
+  originStation,
+  onUpdateTourMeta
 }) => {
   const [liveJourneys, setLiveJourneys] = useState<LiveJourneyResult[] | null>(null);
   const [isLoadingLive, setIsLoadingLive] = useState(false);
   const [liveError, setLiveError] = useState<string | null>(null);
   const [showLivePanel, setShowLivePanel] = useState(false);
+
+  // Editable comment & rating state
+  const [currentRating, setCurrentRating] = useState<number | null>(null);
+  const [currentComment, setCurrentComment] = useState<string>('');
+  const [currentUrl, setCurrentUrl] = useState<string>('');
+  const [isSavedNotice, setIsSavedNotice] = useState<boolean>(false);
+
+  useEffect(() => {
+    if (tour) {
+      setCurrentRating(tour.rating);
+      setCurrentComment(tour.curatedComment || '');
+      setCurrentUrl(tour.links.skitourenguruUrl || '');
+      setShowLivePanel(false);
+      setLiveJourneys(null);
+    }
+  }, [tour]);
 
   if (!tour) return null;
 
@@ -50,6 +68,12 @@ export const TourDetailModal: React.FC<TourDetailModalProps> = ({
   const minutes = tour.transit.approxTotalMinutes % 60;
   const transitTimeStr = `${hours}h ${minutes > 0 ? `${minutes}m` : ''}`;
 
+  const handleSaveNotes = () => {
+    onUpdateTourMeta(tour.id, currentRating, currentComment, currentUrl);
+    setIsSavedNotice(true);
+    setTimeout(() => setIsSavedNotice(false), 2000);
+  };
+
   const handleFetchLiveTimetable = async () => {
     setIsLoadingLive(true);
     setLiveError(null);
@@ -57,10 +81,13 @@ export const TourDetailModal: React.FC<TourDetailModalProps> = ({
     try {
       const results = await fetchLiveJourneys(
         tour.transit.destinationIbnr,
-        tour.transit.destinationStation
+        tour.transit.destinationStation,
+        tour.transit.cleanDbStationName,
+        originStation.ibnr,
+        originStation.name
       );
       if (results.length === 0) {
-        setLiveError('Keine aktuellen Verbindungen gefunden oder Bahnhof im Nahverkehr abweichend benannt.');
+        setLiveError(`Keine Fahrten ab ${originStation.name} gefunden. Probiere den direkten DB Navigator Link unten.`);
       } else {
         setLiveJourneys(results);
       }
@@ -70,6 +97,8 @@ export const TourDetailModal: React.FC<TourDetailModalProps> = ({
       setIsLoadingLive(false);
     }
   };
+
+  const workingDbUrl = buildDbNavigatorUrl(originStation.name, tour.transit.cleanDbStationName);
 
   return (
     <div className="fixed inset-y-0 right-0 w-full sm:w-[480px] lg:w-[540px] bg-white shadow-2xl z-40 flex flex-col border-l border-slate-200 transform transition-transform duration-300 overflow-hidden">
@@ -96,7 +125,7 @@ export const TourDetailModal: React.FC<TourDetailModalProps> = ({
       </div>
 
       {/* Scrollable Content Body */}
-      <div className="flex-1 overflow-y-auto p-5 space-y-6 text-slate-800">
+      <div className="flex-1 overflow-y-auto p-5 space-y-6 text-slate-800 text-xs">
         {/* Subtitle & Key Stats */}
         <div>
           <p className="text-sm text-slate-600 mb-4">{tour.subheading}</p>
@@ -122,71 +151,90 @@ export const TourDetailModal: React.FC<TourDetailModalProps> = ({
         </div>
 
         {/* Quick Action CTA Buttons (GPX & Skitourenguru) */}
-        <div className="grid grid-cols-2 gap-3">
-          <button
-            onClick={() => downloadTourGpx(tour)}
-            className="flex items-center justify-center space-x-2 px-4 py-2.5 bg-alpine-600 hover:bg-alpine-700 text-white rounded-xl font-bold text-sm shadow-sm transition-all hover:shadow"
-          >
-            <Download className="w-4 h-4" />
-            <span>GPX Herunterladen</span>
-          </button>
+        <div className="space-y-2">
+          <div className="grid grid-cols-2 gap-3">
+            <button
+              onClick={() => downloadTourGpx(tour)}
+              className="flex items-center justify-center space-x-2 px-4 py-2.5 bg-alpine-600 hover:bg-alpine-700 text-white rounded-xl font-bold text-sm shadow-sm transition-all hover:shadow"
+            >
+              <Download className="w-4 h-4" />
+              <span>GPX Herunterladen</span>
+            </button>
 
-          <a
-            href={tour.links.skitourenguruUrl}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="flex items-center justify-center space-x-2 px-4 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-800 rounded-xl font-bold text-sm border border-slate-300 transition-all"
-          >
-            <ExternalLink className="w-4 h-4 text-slate-600" />
-            <span>Skitourenguru ↗</span>
-          </a>
+            <a
+              href={tour.links.skitourenguruUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center justify-center space-x-2 px-4 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-800 rounded-xl font-bold text-sm border border-slate-300 transition-all"
+            >
+              <ExternalLink className="w-4 h-4 text-slate-600" />
+              <span>Auf Skitourenguru ↗</span>
+            </a>
+          </div>
+
+          {!tour.links.isVerifiedUrl && (
+            <div className="p-2.5 bg-amber-50 rounded-xl border border-amber-200 text-amber-900 text-[11px] flex items-start space-x-2">
+              <AlertCircle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+              <div>
+                <strong>Skitourenguru-Link unbestätigt:</strong> Der Button öffnet aktuell die Suche auf Skitourenguru nach <em>"{tour.name}"</em>. Du kannst den exakten Link unten jederzeit einfügen und speichern!
+              </div>
+            </div>
+          )}
         </div>
 
-        {/* Avalanche Safety Section */}
+        {/* Avalanche Safety Section (Seasonal Awareness) */}
         <div className="bg-amber-50/60 rounded-2xl p-4 border border-amber-200/80">
           <div className="flex items-center justify-between mb-2">
             <div className="flex items-center space-x-2">
               <AlertTriangle className="w-4 h-4 text-amber-700" />
               <h4 className="font-bold text-slate-900 text-sm">Lawinenlagebericht</h4>
             </div>
-            <span
-              className="px-2.5 py-0.5 rounded-full font-black text-xs border"
-              style={{
-                backgroundColor: eaws.bg,
-                color: eaws.text,
-                borderColor: eaws.border
-              }}
-            >
-              Stufe {currentRisk.dangerLevel} ({currentRisk.dangerLevelLabel})
-            </span>
+            {!currentRisk.isSeasonActive ? (
+              <span className="px-2.5 py-0.5 rounded-full font-bold text-xs bg-slate-200 text-slate-700 border border-slate-300">
+                ❄️ Saisonpause
+              </span>
+            ) : (
+              <span
+                className="px-2.5 py-0.5 rounded-full font-black text-xs border"
+                style={{
+                  backgroundColor: eaws.bg,
+                  color: eaws.text,
+                  borderColor: eaws.border
+                }}
+              >
+                Stufe {currentRisk.dangerLevel} ({currentRisk.dangerLevelLabel})
+              </span>
+            )}
           </div>
 
-          <div className="text-xs text-slate-700 space-y-1">
-            <p><strong>Warnregion:</strong> {currentRisk.name}</p>
-            {currentRisk.elevationThreshold && (
-              <p>
-                <strong>Höhengrenze:</strong> Oberhalb {currentRisk.elevationThreshold}m: Stufe {currentRisk.dangerLevelAbove ?? currentRisk.dangerLevel} | Unterhalb: Stufe {currentRisk.dangerLevelBelow ?? 1}
-              </p>
-            )}
-            <p><strong>Kritische Hangexpositionen:</strong> {currentRisk.aspects.join(', ')} (Tourenexposition: {tour.exposition})</p>
-            <p><strong>Hauptprobleme:</strong> {currentRisk.avalancheProblems.join(', ')}</p>
-          </div>
+          {!currentRisk.isSeasonActive ? (
+            <div className="text-xs text-slate-600 space-y-1">
+              <p>Aktuell liegt kein winterlicher Lawinenlagebericht für <strong>{currentRisk.name}</strong> vor (Saisonpause bis ca. Dezember).</p>
+              <p className="text-[11px] text-slate-500">Sobald der LWD Bayern & Lawine Tirol die täglichen Bulletins aktivieren, erscheinen hier automatisch die Gefahrenstufen, Expositionen und Lawinenprobleme.</p>
+            </div>
+          ) : (
+            <div className="text-xs text-slate-700 space-y-1">
+              <p><strong>Warnregion:</strong> {currentRisk.name}</p>
+              <p><strong>Kritische Hangexpositionen:</strong> {currentRisk.aspects.join(', ')}</p>
+              <p><strong>Hauptprobleme:</strong> {currentRisk.avalancheProblems.join(', ')}</p>
+            </div>
+          )}
 
           {tour.isPiste && (
             <div className="mt-2.5 flex items-center space-x-1.5 text-xs font-semibold text-emerald-800 bg-emerald-100/70 p-2 rounded-lg">
               <ShieldCheck className="w-4 h-4 shrink-0" />
-              <span>Pistentour: Im gesicherten Skiraum auch bei Lawinenstufe 3/4 oft problemlos durchführbar!</span>
+              <span>Pistentour: Im gesicherten Skiraum auch bei hoher Lawinenstufe oder Nebel machbar!</span>
             </div>
           )}
         </div>
 
-        {/* Public Transit Section (From Augsburg Haunstetter Straße) */}
+        {/* Public Transit Section (From Active Origin Station) */}
         <div className="rounded-2xl p-4 border border-slate-200 bg-slate-50/60 space-y-3">
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-2">
               <Train className="w-4 h-4 text-alpine-600" />
               <h4 className="font-bold text-slate-900 text-sm">
-                Anreise ab Augsburg Haunstetter Str.
+                Anreise ab {originStation.name}
               </h4>
             </div>
             <span className="text-xs font-bold text-slate-700 flex items-center space-x-1">
@@ -212,10 +260,15 @@ export const TourDetailModal: React.FC<TourDetailModalProps> = ({
             )}
           </div>
 
-          {/* Transit description */}
-          <p className="text-xs text-slate-600 leading-relaxed">
-            {tour.transit.transitDescription}
-          </p>
+          {/* Walking connection from station */}
+          {tour.transit.walkingDurationMinutes > 0 && (
+            <div className="p-2 bg-white rounded-xl border border-slate-200 flex items-center space-x-2 text-[11px] text-slate-700">
+              <Footprints className="w-4 h-4 text-alpine-600 shrink-0" />
+              <span>
+                Zielbahnhof: <strong>{tour.transit.cleanDbStationName}</strong> → ca. <strong>{tour.transit.walkingDurationMinutes} min Fußweg</strong> ({tour.transit.walkingDistanceMeters} m) zum Einstieg.
+              </span>
+            </div>
+          )}
 
           {/* Step-by-step route itinerary */}
           <div className="space-y-2 pt-1 border-t border-slate-200">
@@ -238,37 +291,36 @@ export const TourDetailModal: React.FC<TourDetailModalProps> = ({
             ))}
           </div>
 
-          {/* Live DB connection query button */}
-          <div className="pt-2">
+          {/* Working DB Navigator Buttons */}
+          <div className="grid grid-cols-2 gap-2 pt-2">
             <button
               onClick={handleFetchLiveTimetable}
               disabled={isLoadingLive}
-              className="w-full flex items-center justify-center space-x-2 py-2 px-3 bg-white hover:bg-slate-100 text-slate-800 rounded-xl border border-slate-300 font-semibold text-xs shadow-2xs transition-colors"
+              className="flex items-center justify-center space-x-1.5 py-2 px-3 bg-white hover:bg-slate-100 text-slate-800 rounded-xl border border-slate-300 font-semibold text-xs shadow-2xs transition-colors"
             >
               <RefreshCw className={`w-3.5 h-3.5 ${isLoadingLive ? 'animate-spin text-alpine-600' : 'text-slate-500'}`} />
-              <span>{isLoadingLive ? 'Fahrplan wird abgefragt...' : 'Live DB Abfahrten prüfen (Heute)'}</span>
+              <span>Live-Fahrplan</span>
             </button>
+
+            <a
+              href={workingDbUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center justify-center space-x-1.5 py-2 px-3 bg-red-600 hover:bg-red-700 text-white rounded-xl font-bold text-xs shadow-2xs transition-colors"
+            >
+              <ExternalLink className="w-3.5 h-3.5" />
+              <span>In DB Navigator</span>
+            </a>
           </div>
 
           {/* Live DB Results Box */}
           {showLivePanel && (
             <div className="mt-3 p-3 bg-white rounded-xl border border-slate-200 space-y-2">
-              <div className="flex items-center justify-between text-xs font-bold text-slate-700 border-b pb-1">
-                <span>Echtzeit-Verbindungen ab Haunstetter Str.:</span>
-                <a
-                  href={`https://www.bahn.de/buchung/fahrplan/suche#sts=true&so=Augsburg%20Haunstetter%20Stra%C3%9Fe&zo=${encodeURIComponent(tour.transit.destinationStation)}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-alpine-600 hover:underline flex items-center space-x-0.5"
-                >
-                  <span>DB Navigator</span>
-                  <ExternalLink className="w-3 h-3" />
-                </a>
+              <div className="font-bold text-slate-700 border-b pb-1">
+                Echtzeit-Verbindungen ab {originStation.name}:
               </div>
 
-              {liveError && (
-                <p className="text-xs text-amber-700">{liveError}</p>
-              )}
+              {liveError && <p className="text-xs text-amber-700">{liveError}</p>}
 
               {liveJourneys && liveJourneys.length > 0 && (
                 <div className="space-y-2">
@@ -282,17 +334,92 @@ export const TourDetailModal: React.FC<TourDetailModalProps> = ({
                           Dauer: {Math.floor(j.durationMinutes / 60)}h {j.durationMinutes % 60}m | {j.transfers} Umstiege
                         </div>
                       </div>
-                      <div className="text-right">
-                        <span className="text-[10px] font-semibold bg-emerald-100 text-emerald-800 px-1.5 py-0.5 rounded">
-                          Regionalzug
-                        </span>
-                      </div>
+                      <span className="text-[10px] font-semibold bg-emerald-100 text-emerald-800 px-1.5 py-0.5 rounded">
+                        Regionalzug
+                      </span>
                     </div>
                   ))}
                 </div>
               )}
             </div>
           )}
+        </div>
+
+        {/* User Ratings & Custom Notes (Editable) */}
+        <div className="rounded-2xl p-4 border border-slate-200 bg-slate-50/80 space-y-3">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center space-x-2">
+              <MessageSquare className="w-4 h-4 text-alpine-600" />
+              <h4 className="font-bold text-slate-900 text-sm">Deine Bewertung & Notizen</h4>
+            </div>
+            {isSavedNotice && (
+              <span className="text-[11px] font-bold text-emerald-600 flex items-center space-x-1 animate-pulse">
+                <CheckCircle2 className="w-3.5 h-3.5" />
+                <span>Gespeichert!</span>
+              </span>
+            )}
+          </div>
+
+          {/* Interactive Rating Scale 1-5 */}
+          <div className="flex items-center justify-between bg-white p-2.5 rounded-xl border border-slate-200">
+            <span className="font-semibold text-slate-700">Persönliche Bewertung:</span>
+            <div className="flex items-center space-x-1">
+              {[1, 2, 3, 4, 5].map(star => (
+                <button
+                  key={star}
+                  type="button"
+                  onClick={() => setCurrentRating(currentRating === star ? null : star)}
+                  className="p-1 hover:scale-125 transition-transform"
+                  title={currentRating === star ? 'Bewertung löschen' : `${star} Sterne`}
+                >
+                  <Star
+                    className={`w-5 h-5 ${
+                      currentRating && currentRating >= star
+                        ? 'fill-amber-400 text-amber-400'
+                        : 'text-slate-300 hover:text-amber-300'
+                    }`}
+                  />
+                </button>
+              ))}
+              <span className="text-xs text-slate-500 ml-1 font-bold">
+                {currentRating ? `${currentRating}/5` : 'Noch nicht gemacht'}
+              </span>
+            </div>
+          </div>
+
+          {/* Editable Comment Textarea */}
+          <div className="space-y-1">
+            <label className="font-bold text-slate-700">Notizen, Tipps & Erfahrungen:</label>
+            <textarea
+              value={currentComment}
+              onChange={(e) => setCurrentComment(e.target.value)}
+              placeholder="Schreibe eigene Tipps, Parkmöglichkeiten, Schneeverhältnisse..."
+              rows={3}
+              className="w-full p-2.5 bg-white rounded-xl border border-slate-300 text-xs focus:ring-2 focus:ring-alpine-500/30"
+            />
+          </div>
+
+          {/* Edit Skitourenguru URL if unverified */}
+          <div className="space-y-1">
+            <label className="font-bold text-slate-700 flex items-center justify-between">
+              <span>Skitourenguru URL:</span>
+              <span className="text-[10px] text-slate-400">Direktlink mit ID einfügen</span>
+            </label>
+            <input
+              type="url"
+              value={currentUrl}
+              onChange={(e) => setCurrentUrl(e.target.value)}
+              placeholder="https://www.skitourenguru.ch/?id=..."
+              className="w-full p-2 bg-white rounded-xl border border-slate-300 text-xs"
+            />
+          </div>
+
+          <button
+            onClick={handleSaveNotes}
+            className="w-full py-2 bg-slate-900 hover:bg-slate-800 text-white rounded-xl font-bold transition-colors shadow-2xs"
+          >
+            Bewertung & Notizen speichern
+          </button>
         </div>
 
         {/* DAV Huts / Accommodation (for multi-day extension) */}
@@ -327,37 +454,7 @@ export const TourDetailModal: React.FC<TourDetailModalProps> = ({
             ))}
           </div>
         )}
-
-        {/* Friend Comments & Insider Tips */}
-        <div className="rounded-2xl p-4 border border-slate-200 bg-slate-50/80 space-y-2.5">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-2">
-              <MessageSquare className="w-4 h-4 text-alpine-600" />
-              <h4 className="font-bold text-slate-900 text-sm">Erfahrungsbericht & Tipps</h4>
-            </div>
-            <div className="flex items-center space-x-1 text-amber-500 font-bold text-xs">
-              <Star className="w-3.5 h-3.5 fill-amber-400" />
-              <span>{tour.rating.toFixed(1)} / 5</span>
-            </div>
-          </div>
-
-          <p className="text-xs text-slate-700 italic bg-white p-3 rounded-xl border border-slate-200">
-            "{tour.curatedComment}"
-          </p>
-
-          {tour.tips.length > 0 && (
-            <div className="space-y-1">
-              <div className="text-[11px] font-bold text-slate-600">Insider-Tipps:</div>
-              <ul className="text-xs text-slate-600 space-y-1 list-disc list-inside">
-                {tour.tips.map((tip, idx) => (
-                  <li key={idx}>{tip}</li>
-                ))}
-              </ul>
-            </div>
-          )}
-        </div>
       </div>
     </div>
   );
 };
-

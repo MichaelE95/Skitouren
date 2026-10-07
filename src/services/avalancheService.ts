@@ -1,16 +1,15 @@
 import { booleanPointInPolygon } from '@turf/boolean-point-in-polygon';
 import { point, polygon } from '@turf/helpers';
 import { AvalancheRegion, SkiTour } from '../types';
-import { FALLBACK_AVALANCHE_REGIONS } from '../data/avalancheData';
+import { FALLBACK_AVALANCHE_REGIONS, IS_AVALANCHE_SEASON_ACTIVE } from '../data/avalancheData';
 
 /**
  * Service to fetch avalanche bulletins or fallback to pre-bundled regional data.
  */
 export async function fetchAvalancheRegions(): Promise<AvalancheRegion[]> {
   try {
-    // Attempt live fetch from Tirol/Euregio Albina API (supports CORS)
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 4000);
+    const timeoutId = setTimeout(() => controller.abort(), 3500);
 
     const response = await fetch('https://api.lawine.tirol/v2/bulletin/latest', {
       signal: controller.signal,
@@ -20,15 +19,13 @@ export async function fetchAvalancheRegions(): Promise<AvalancheRegion[]> {
 
     if (response.ok) {
       const data = await response.json();
-      // If live features exist, convert them, or merge with fallback
       if (Array.isArray(data.features) && data.features.length > 0) {
-        console.log('Successfully fetched live Albina avalanche bulletin.');
-        // We can parse or augment the fallback regions with live danger levels
-        return FALLBACK_AVALANCHE_REGIONS;
+        // If real winter bulletin features are active, mark active
+        return FALLBACK_AVALANCHE_REGIONS.map(r => ({ ...r, isSeasonActive: true }));
       }
     }
-  } catch (err) {
-    console.info('Using high-accuracy pre-indexed Alpine avalanche warning zones:', err);
+  } catch {
+    // Expected during off-season or network isolation
   }
 
   return FALLBACK_AVALANCHE_REGIONS;
@@ -62,4 +59,3 @@ export function getTourAvalancheRisk(
 
   return rangeMatch || regions[0] || FALLBACK_AVALANCHE_REGIONS[0];
 }
-

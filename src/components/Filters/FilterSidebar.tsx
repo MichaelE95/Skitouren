@@ -1,16 +1,15 @@
 import React from 'react';
-import { FilterState, SACCategory } from '../../types';
+import { FilterState, SACCategory, OriginStation } from '../../types';
 import {
   Search,
-  Filter,
   Train,
   ShieldCheck,
-  AlertTriangle,
   RotateCcw,
   SlidersHorizontal,
-  Compass,
   Star,
-  Mountain
+  CheckCircle,
+  HelpCircle,
+  MapPin
 } from 'lucide-react';
 
 interface FilterSidebarProps {
@@ -19,6 +18,7 @@ interface FilterSidebarProps {
   totalToursCount: number;
   filteredToursCount: number;
   availableRanges: string[];
+  originStation: OriginStation;
 }
 
 export const FilterSidebar: React.FC<FilterSidebarProps> = ({
@@ -26,7 +26,8 @@ export const FilterSidebar: React.FC<FilterSidebarProps> = ({
   onFilterChange,
   totalToursCount,
   filteredToursCount,
-  availableRanges
+  availableRanges,
+  originStation
 }) => {
   const update = (partial: Partial<FilterState>) => {
     onFilterChange({ ...filters, ...partial });
@@ -60,6 +61,7 @@ export const FilterSidebar: React.FC<FilterSidebarProps> = ({
       selectedDifficulties: [],
       selectedRanges: [],
       tourType: 'all',
+      ratingFilter: 'all',
       sortBy: 'transitTime'
     });
   };
@@ -69,12 +71,11 @@ export const FilterSidebar: React.FC<FilterSidebarProps> = ({
     filters.onlyDTicket ||
     filters.onlyPiste ||
     filters.maxTransitDurationMinutes < 240 ||
-    filters.maxAvalancheLevel < 4 ||
-    filters.minElevationGain > 0 ||
     filters.maxElevationGain < 2000 ||
     filters.selectedDifficulties.length > 0 ||
     filters.selectedRanges.length > 0 ||
-    filters.tourType !== 'all';
+    filters.tourType !== 'all' ||
+    filters.ratingFilter !== 'all';
 
   return (
     <div className="flex flex-col h-full bg-white border-r border-slate-200 w-full text-slate-800">
@@ -119,6 +120,34 @@ export const FilterSidebar: React.FC<FilterSidebarProps> = ({
 
       {/* Filter Options List */}
       <div className="flex-1 overflow-y-auto p-4 space-y-5 text-xs">
+        {/* Rating Filter: All, Unrated (Noch nicht gemacht), Rated Only, Min 4 Stars */}
+        <div className="space-y-1.5">
+          <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider block">
+            Erfahrungs-Status & Bewertung
+          </label>
+          <div className="grid grid-cols-2 gap-1.5">
+            {[
+              { id: 'all', label: 'Alle Touren', icon: null },
+              { id: 'unrated', label: 'Noch nicht gemacht', icon: HelpCircle },
+              { id: 'rated_only', label: 'Bereits gemacht', icon: CheckCircle },
+              { id: 'min_4_stars', label: 'Top-Touren (★ 4.0+)', icon: Star }
+            ].map(item => (
+              <button
+                key={item.id}
+                onClick={() => update({ ratingFilter: item.id as any })}
+                className={`py-2 px-2 rounded-xl text-left border font-semibold text-[11px] transition-all flex items-center space-x-1.5 ${
+                  filters.ratingFilter === item.id
+                    ? 'bg-alpine-600 text-white border-alpine-600 shadow-2xs'
+                    : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'
+                }`}
+              >
+                {item.icon && <item.icon className="w-3.5 h-3.5 shrink-0" />}
+                <span className="truncate">{item.label}</span>
+              </button>
+            ))}
+          </div>
+        </div>
+
         {/* Quick Toggles (D-Ticket & Piste) */}
         <div className="space-y-2">
           <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider block">
@@ -138,7 +167,7 @@ export const FilterSidebar: React.FC<FilterSidebarProps> = ({
               <Train className={`w-4 h-4 ${filters.onlyDTicket ? 'text-emerald-600' : 'text-slate-400'}`} />
               <div>
                 <div className="font-bold text-xs">100% Deutschland-Ticket</div>
-                <div className="text-[10px] text-slate-500">Ohne jegliche Bus-/Bahnaufpreise</div>
+                <div className="text-[10px] text-slate-500">Ohne Bus- oder Auslandsaufpreise</div>
               </div>
             </div>
             <div className={`w-4 h-4 rounded-full border flex items-center justify-center ${
@@ -176,7 +205,7 @@ export const FilterSidebar: React.FC<FilterSidebarProps> = ({
         <div className="space-y-1.5">
           <div className="flex items-center justify-between">
             <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">
-              Max. Fahrzeit (ab Haunstetter Str.)
+              Max. Fahrzeit (ab {originStation.name})
             </label>
             <span className="font-bold text-alpine-700 bg-alpine-50 px-2 py-0.5 rounded border border-alpine-200">
               ≤ {Math.floor(filters.maxTransitDurationMinutes / 60)}h {filters.maxTransitDurationMinutes % 60 > 0 ? `${filters.maxTransitDurationMinutes % 60}m` : ''}
@@ -233,42 +262,6 @@ export const FilterSidebar: React.FC<FilterSidebarProps> = ({
           </div>
         </div>
 
-        {/* Max Avalanche Level Filter */}
-        <div className="space-y-1.5">
-          <div className="flex items-center justify-between">
-            <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">
-              Max. Lawinenwarnstufe
-            </label>
-            <span className="font-bold text-slate-800">
-              bis Stufe {filters.maxAvalancheLevel}
-            </span>
-          </div>
-          <div className="grid grid-cols-4 gap-1.5">
-            {[
-              { level: 1, label: '1 Gering', bg: '#ccff66' },
-              { level: 2, label: '2 Mäßig', bg: '#ffff00' },
-              { level: 3, label: '3 Erheblich', bg: '#ff9900' },
-              { level: 4, label: '4 Groß', bg: '#ff0000' }
-            ].map(lvl => {
-              const active = filters.maxAvalancheLevel >= lvl.level;
-              return (
-                <button
-                  key={lvl.level}
-                  onClick={() => update({ maxAvalancheLevel: lvl.level })}
-                  className={`py-1 rounded-lg text-center text-xs font-bold border transition-all ${
-                    filters.maxAvalancheLevel === lvl.level
-                      ? 'ring-2 ring-slate-900 border-transparent shadow-xs'
-                      : 'border-slate-200 hover:border-slate-400'
-                  }`}
-                  style={{ backgroundColor: lvl.bg, color: lvl.level >= 3 ? '#ffffff' : '#1f2937' }}
-                >
-                  Stufe {lvl.level}
-                </button>
-              );
-            })}
-          </div>
-        </div>
-
         {/* Elevation Gain Range Slider */}
         <div className="space-y-1.5">
           <div className="flex items-center justify-between">
@@ -305,7 +298,7 @@ export const FilterSidebar: React.FC<FilterSidebarProps> = ({
             {[
               { id: 'all', label: 'Alle' },
               { id: 'day', label: 'Tagestour' },
-              { id: 'multiday', label: 'Mehrtagestour' }
+              { id: 'multiday', label: 'Mehrtag' }
             ].map(t => (
               <button
                 key={t.id}
@@ -357,9 +350,9 @@ export const FilterSidebar: React.FC<FilterSidebarProps> = ({
             onChange={(e) => update({ sortBy: e.target.value as any })}
             className="w-full p-2 bg-white rounded-xl border border-slate-300 text-xs font-semibold text-slate-800 focus:outline-none focus:ring-2 focus:ring-alpine-500/30"
           >
-            <option value="transitTime">⏱️ Kürzeste Anreise ab Haunstetter Str.</option>
+            <option value="transitTime">⏱️ Kürzeste Anreise ab {originStation.name}</option>
             <option value="elevationGain">🏔️ Höhenmeter (Aufstieg)</option>
-            <option value="rating">★ Beste Bewertung</option>
+            <option value="rating">★ Bewertung</option>
             <option value="difficulty">🧗 SAC-Schwierigkeit</option>
           </select>
         </div>
@@ -367,4 +360,3 @@ export const FilterSidebar: React.FC<FilterSidebarProps> = ({
     </div>
   );
 };
-
