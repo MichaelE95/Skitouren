@@ -4,10 +4,12 @@ import { getTourAvalancheRisk } from '../../services/avalancheService';
 import { gpxUrl } from '../../services/tourStore';
 import { EAWS_COLORS } from '../../data/avalancheData';
 import { formatClock, formatDuration, formatDateTime } from '../../utils/format';
+import { estimateTourTime, formatHM, TOUR_TIME_HINT } from '../../utils/tourTime';
 import { TransitSummary, DIFF_BADGE } from './TourCard';
+import { ExposurePicker } from './AvalancheExposure';
 import {
   ArrowLeft, Download, ExternalLink, Star, Trash2, Save, Footprints, Train, Bus, ChevronDown, ChevronRight,
-  Pencil, X, AlertTriangle, MapPin
+  Pencil, X, AlertTriangle, MapPin, Timer, Map as MapIcon
 } from 'lucide-react';
 
 interface TourDetailPanelProps {
@@ -22,6 +24,7 @@ interface TourDetailPanelProps {
   onSave: (tour: SkiTour) => Promise<void>;
   onDelete: (tour: SkiTour) => Promise<void>;
   onRetry: (tour: SkiTour) => void;
+  onShowMap?: () => void; // phones only: switch to the map view
 }
 
 export const TourDetailPanel: React.FC<TourDetailPanelProps> = ({
@@ -35,7 +38,8 @@ export const TourDetailPanel: React.FC<TourDetailPanelProps> = ({
   onClose,
   onSave,
   onDelete,
-  onRetry
+  onRetry,
+  onShowMap
 }) => {
   const [notes, setNotes] = useState(tour.notes);
   const [isEditing, setIsEditing] = useState(false);
@@ -52,6 +56,7 @@ export const TourDetailPanel: React.FC<TourDetailPanelProps> = ({
   }, [tour]);
 
   const risk = getTourAvalancheRisk(tour, avalancheRegions);
+  const time = estimateTourTime(tour);
 
   const run = async (fn: () => Promise<void>) => {
     setBusy(true);
@@ -91,15 +96,26 @@ export const TourDetailPanel: React.FC<TourDetailPanelProps> = ({
           className="flex items-center space-x-1 text-xs font-semibold text-slate-700 hover:text-alpine-700"
         >
           <ArrowLeft className="w-4 h-4" />
-          <span>Zurück zur Übersicht</span>
+          <span>Übersicht</span>
         </button>
-        <button
-          onClick={() => setIsEditing(!isEditing)}
-          className="flex items-center space-x-1 text-xs font-semibold text-slate-500 hover:text-slate-800"
-        >
-          {isEditing ? <X className="w-3.5 h-3.5" /> : <Pencil className="w-3.5 h-3.5" />}
-          <span>{isEditing ? 'Abbrechen' : 'Bearbeiten'}</span>
-        </button>
+        <div className="flex items-center space-x-3">
+          {onShowMap && (
+            <button
+              onClick={onShowMap}
+              className="md:hidden flex items-center space-x-1 px-2.5 py-1 rounded-lg bg-alpine-600 text-white text-xs font-bold"
+            >
+              <MapIcon className="w-3.5 h-3.5" />
+              <span>Karte</span>
+            </button>
+          )}
+          <button
+            onClick={() => setIsEditing(!isEditing)}
+            className="flex items-center space-x-1 text-xs font-semibold text-slate-500 hover:text-slate-800"
+          >
+            {isEditing ? <X className="w-3.5 h-3.5" /> : <Pencil className="w-3.5 h-3.5" />}
+            <span>{isEditing ? 'Abbrechen' : 'Bearbeiten'}</span>
+          </button>
+        </div>
       </div>
 
       <div className="flex-1 overflow-y-auto p-4 space-y-5 text-xs">
@@ -157,11 +173,20 @@ export const TourDetailPanel: React.FC<TourDetailPanelProps> = ({
         )}
 
         {/* Metrics */}
-        <div className="grid grid-cols-4 gap-1.5 bg-slate-50 p-2.5 rounded-xl text-center border border-slate-100">
-          <Metric label="Start" value={`${tour.startElevation} m`} />
-          <Metric label="Gipfel" value={`${tour.peakElevation} m`} />
-          <Metric label="Aufstieg" value={`+${tour.elevationGain} hm`} />
-          <Metric label="Distanz" value={`${tour.distanceKm} km`} />
+        <div>
+          <div className="grid grid-cols-4 gap-1.5 bg-slate-50 p-2.5 rounded-xl text-center border border-slate-100">
+            <Metric label="Start" value={`${tour.startElevation} m`} />
+            <Metric label="Gipfel" value={`${tour.peakElevation} m`} />
+            <Metric label="Aufstieg" value={`+${tour.elevationGain} hm`} />
+            <Metric label="Distanz" value={`${tour.distanceKm} km`} />
+          </div>
+          <div className="mt-1.5 flex items-center space-x-1 text-slate-600" title={TOUR_TIME_HINT}>
+            <Timer className="w-3.5 h-3.5 text-slate-400" />
+            <span>
+              Tourdauer ca. <strong className="text-slate-800">{formatHM(time.totalMinutes)} h</strong>
+              {' '}(↑ {formatHM(time.ascentMinutes)} · ↓ {formatHM(time.descentMinutes)}), ohne Pausen
+            </span>
+          </div>
         </div>
 
         {/* Rating */}
@@ -174,6 +199,15 @@ export const TourDetailPanel: React.FC<TourDetailPanelProps> = ({
             ))}
             <span className="ml-2 text-slate-500">{tour.rating ? `${tour.rating}/5` : 'Noch nicht gemacht'}</span>
           </div>
+        </Section>
+
+        {/* Avalanche terrain exposure (user-entered, static) */}
+        <Section title="Lawinenexposition (Gelände, ATES)">
+          <ExposurePicker
+            value={tour.avalancheExposure}
+            disabled={busy}
+            onChange={v => run(() => onSave({ ...tour, avalancheExposure: v }))}
+          />
         </Section>
 
         {/* Transit */}

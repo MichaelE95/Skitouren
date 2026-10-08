@@ -84,12 +84,12 @@ export const OriginPicker: React.FC<OriginPickerProps> = ({ current, onSelect })
         title="Choose the origin (any stop or address)"
       >
         <MapPin className="w-3.5 h-3.5 text-rose-400 shrink-0" />
-        <span className="truncate max-w-[140px] sm:max-w-[220px] text-left">{current.name}</span>
+        <span className="truncate max-w-[110px] sm:max-w-[220px] text-left">{current.name}</span>
         <ChevronDown className="w-3 h-3 text-slate-400 shrink-0" />
       </button>
 
       {isOpen && (
-        <div className="absolute left-0 mt-2 w-80 bg-slate-900 border border-slate-700/80 rounded-2xl shadow-2xl z-50 overflow-hidden">
+        <div className="fixed left-3 right-3 top-14 sm:absolute sm:left-0 sm:right-auto sm:top-auto sm:mt-2 sm:w-80 bg-slate-900 border border-slate-700/80 rounded-2xl shadow-2xl z-50 overflow-hidden">
           <div className="p-2.5 border-b border-slate-800">
             <div className="relative">
               <Search className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-2.5" />
@@ -146,7 +146,7 @@ export const OriginPicker: React.FC<OriginPickerProps> = ({ current, onSelect })
                         {selected && <Check className="w-3.5 h-3.5 text-alpine-400" />}
                         <button
                           onClick={e => removeFavourite(e, f)}
-                          className="opacity-0 group-hover:opacity-100 p-0.5 text-slate-500 hover:text-rose-400"
+                          className="sm:opacity-0 sm:group-hover:opacity-100 p-0.5 text-slate-500 hover:text-rose-400"
                           title="Remove favourite"
                         >
                           <X className="w-3 h-3" />

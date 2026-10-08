@@ -23,3 +23,4 @@ if not exist node_modules (
 REM Vite opens the browser automatically (server.open in vite.config.ts).
 call npm run dev
 pause
+

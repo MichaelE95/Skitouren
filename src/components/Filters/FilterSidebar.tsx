@@ -1,5 +1,6 @@
 import React from 'react';
 import { FilterState, SACCategory, Place, DEFAULT_FILTERS } from '../../types';
+import { EXPOSURE_LEVELS } from '../Tours/AvalancheExposure';
 import {
   Search,
   ShieldCheck,
@@ -18,6 +19,8 @@ interface FilterSidebarProps {
   availableRanges: string[];
   origin: Place;
   onCloseMobile?: () => void;
+  /** Phones only: departure time + Nahverkehr toggle (they don't fit in the top bar). */
+  travelControls?: React.ReactNode;
 }
 
 export const FilterSidebar: React.FC<FilterSidebarProps> = ({
@@ -26,7 +29,8 @@ export const FilterSidebar: React.FC<FilterSidebarProps> = ({
   totalToursCount,
   filteredToursCount,
   availableRanges,
-  origin
+  origin,
+  travelControls
 }) => {
   const update = (partial: Partial<FilterState>) => {
     onFilterChange({ ...filters, ...partial });
@@ -59,16 +63,23 @@ export const FilterSidebar: React.FC<FilterSidebarProps> = ({
     filters.maxElevationGain < 2000 ||
     filters.selectedDifficulties.length > 0 ||
     filters.selectedRanges.length > 0 ||
-    filters.ratingFilter !== 'all';
+    filters.ratingFilter !== 'all' ||
+    filters.maxAvalancheExposure < 5;
 
   return (
     <div className="flex flex-col h-full bg-white border-r border-slate-200 w-full text-slate-800">
+      {travelControls && (
+        <div className="md:hidden p-4 border-b border-slate-200 space-y-2">
+          <div className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Fahrplan-Einstellungen</div>
+          {travelControls}
+        </div>
+      )}
       {/* Search & Header */}
       <div className="p-4 border-b border-slate-200 bg-slate-50/60 space-y-3">
         <div className="flex items-center justify-between">
           <div className="flex items-center space-x-2">
             <SlidersHorizontal className="w-4 h-4 text-alpine-600" />
-            <h3 className="font-bold text-slate-900 text-sm">Filter & Suche</h3>
+            <h3 className="font-bold text-slate-900 text-sm">Filter &amp; Suche</h3>
           </div>
           {hasActiveFilters && (
             <button
@@ -189,6 +200,31 @@ export const FilterSidebar: React.FC<FilterSidebarProps> = ({
           </div>
         </div>
 
+        {/* Max avalanche terrain exposure (user-rated; unrated tours stay visible) */}
+        <div className="space-y-1.5">
+          <div className="flex items-center justify-between">
+            <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">
+              Max. Lawinenexposition
+            </label>
+            <span className="font-bold text-slate-800">
+              {filters.maxAvalancheExposure >= 5 ? 'Alle' : `≤ ${filters.maxAvalancheExposure} · ${EXPOSURE_LEVELS[filters.maxAvalancheExposure - 1].label}`}
+            </span>
+          </div>
+          <input
+            type="range"
+            min="1"
+            max="5"
+            step="1"
+            value={filters.maxAvalancheExposure}
+            onChange={(e) => update({ maxAvalancheExposure: Number(e.target.value) })}
+            className="w-full accent-alpine-600 cursor-pointer"
+          />
+          <div className="flex justify-between text-[10px] text-slate-400">
+            {EXPOSURE_LEVELS.map(l => <span key={l.value} title={l.description}>{l.value}</span>)}
+          </div>
+          <div className="text-[10px] text-slate-400">Tours you haven't rated yet stay visible (badge "Lawine ?").</div>
+        </div>
+
         {/* SAC Difficulty Filter (L, WS, ZS, S) */}
         <div className="space-y-2">
           <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider block">
@@ -286,6 +322,7 @@ export const FilterSidebar: React.FC<FilterSidebarProps> = ({
             className="w-full p-2 bg-white rounded-xl border border-slate-300 text-xs font-semibold text-slate-800 focus:outline-none focus:ring-2 focus:ring-alpine-500/30"
           >
             <option value="transitTime">⏱️ Kürzeste Anreise ab {origin.name}</option>
+            <option value="tourTime">🥾 Tourdauer (kürzeste zuerst)</option>
             <option value="elevationGain">🏔️ Höhenmeter (Aufstieg)</option>
             <option value="rating">★ Bewertung</option>
             <option value="difficulty">🧗 SAC-Schwierigkeit</option>

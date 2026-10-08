@@ -46,6 +46,8 @@ export interface SkiTour {
   isPiste: boolean;
   skitourenguruUrl?: string;
   rating: number | null; // null = not done yet, 1..5
+  /** Avalanche terrain exposure 1..5 (ATES v2 classes 0..4 + 1), null/missing = not rated yet. */
+  avalancheExposure?: number | null;
   notes: string;
 }
 
@@ -121,7 +123,9 @@ export interface FilterState {
   selectedDifficulties: SACCategory[];
   selectedRanges: string[];
   ratingFilter: 'all' | 'unrated' | 'rated_only' | 'min_4_stars';
-  sortBy: 'transitTime' | 'elevationGain' | 'rating' | 'difficulty';
+  /** 5 = no filter. Unrated tours always stay visible. */
+  maxAvalancheExposure: number;
+  sortBy: 'transitTime' | 'tourTime' | 'elevationGain' | 'rating' | 'difficulty';
 }
 
 export const DEFAULT_FILTERS: FilterState = {
@@ -132,5 +136,6 @@ export const DEFAULT_FILTERS: FilterState = {
   selectedDifficulties: [],
   selectedRanges: [],
   ratingFilter: 'all',
+  maxAvalancheExposure: 5,
   sortBy: 'transitTime'
 };

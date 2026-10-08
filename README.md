@@ -14,9 +14,20 @@ Live site: <https://michaele95.github.io/Skitouren/>
 - **Real connections** from any start (station or address) to the trailhead (the first GPX point),
   including the walk from the last stop. Queried from [Transitous](https://transitous.org).
 - **"Nur Nahverkehr"** switch: regional trains, S-Bahn, buses and trams only (no ICE/IC/EC, no Flixbus) – roughly Deutschlandticket-style.
-- **Filters & sorting** by total travel time, elevation gain, SAC grade, Gebirgsgruppe, piste tours and rating.
+- **Filters & sorting** by total travel time, elevation gain, SAC grade, Gebirgsgruppe, piste tours, rating,
+  avalanche exposure and tour duration.
+- **Approximate tour time** per tour (DAV rule of thumb, pure moving time without breaks):
+  ascent = larger of (elevation gain ÷ 300 Hm/h, distance ÷ 4 km/h) + half of the smaller one; descent = elevation gain ÷ 1200 Hm/h.
+- **Avalanche exposure ("Lawinenexposition") 1–5**, rated by you per tour, based on the
+  [ATES v2](https://avalanche.ca) terrain scale (1 = hardly any avalanche terrain … 5 = extreme). It describes the terrain, not the
+  daily bulletin. The filter slider "Max. Lawinenexposition" lets you, for example, show only tours ≤ 2 at danger level 3 and then
+  check the rest on Skitourenguru. Tours you haven't rated yet always stay visible and show a grey "Lawine ?" badge.
+- **Duplicate warning** when adding a GPX: if an existing tour has its summit within 200 m **and** its trailhead within 500 m,
+  the dialog shows it and the button changes to "Trotzdem speichern" (a different route to the same peak is still possible).
 - **Add, edit and delete tours** from a GPX file, directly in the browser.
 - Results are **cached** in the browser and only recalculated when you click **"Fahrplan laden"**.
+- **Works on phones**: compact top bar, bottom tabs *Karte | Touren | Filter | + Tour*; departure time and the Nahverkehr switch
+  are in the Filter tab. On a tour's detail page, "Karte" shows its track.
 
 > [!NOTE]
 > The avalanche layer is still a placeholder (rough regions with fixed levels). Don't use it for decisions.
@@ -26,8 +37,9 @@ Live site: <https://michaele95.github.io/Skitouren/>
 | Data | Source |
 | --- | --- |
 | Peak name, start/peak elevation, elevation gain, distance, trailhead, summit, track | **GPX file** (parsed in the browser) |
+| Approximate tour time | Calculated from elevation gain + distance (not stored) |
 | Gebirgsgruppe | Wikidata lookup around the summit (optional, editable) |
-| SAC grade, piste tour yes/no, Skitourenguru link (optional), rating, notes | Entered by you |
+| SAC grade, piste tour yes/no, avalanche exposure, Skitourenguru link (optional), rating, notes | Entered by you |
 | Connections and travel time | Transitous API, from your start coordinates to the trailhead coordinates |
 
 Nothing else is hard-coded. A GPX file with elevation data is the only requirement.
@@ -103,3 +115,13 @@ The app uses relative paths (`base: './'`), so it works under any sub-path.
 - Transitous is a free, community-run service. The app requests one connection per tour (3 at a time) and only when you click "Fahrplan laden". Please keep it that way.
 - The "earliest arrival" connection can include a long final walk. Cards flag walks over 30 minutes.
 - Wikidata doesn't know the Gebirgsgruppe for every peak. In that case you can enter it yourself or leave it empty.
+
+
+## Open ToDos
+- ~~Prevent adding the same tour / GPX twice~~ → duplicate warning (summit ≤ 200 m and trailhead ≤ 500 m)
+- ~~Export button grows and disturbs the layout~~ → constant size, only turns amber
+- ~~Approximate time per route~~ → DAV formula, shown on cards/details, sortable
+- ~~Avalanche pre-filter~~ → "Lawinenexposition" 1–5 (ATES v2) + filter slider
+- ~~Optimize for smartphones~~ → phone layout with bottom tabs
+- Real avalanche bulletin data instead of the placeholder layer
+

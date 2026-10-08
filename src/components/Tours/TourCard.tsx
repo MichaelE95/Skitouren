@@ -4,7 +4,9 @@ import { getTourAvalancheRisk } from '../../services/avalancheService';
 import { LONG_FINAL_WALK_MINUTES } from '../../services/transitService';
 import { EAWS_COLORS } from '../../data/avalancheData';
 import { formatClock, formatDuration } from '../../utils/format';
-import { Clock, Train, Star, AlertTriangle, ArrowRight, ShieldCheck, Footprints, Loader2, CircleSlash } from 'lucide-react';
+import { estimateTourTime, formatHM, TOUR_TIME_HINT } from '../../utils/tourTime';
+import { ExposureBadge } from './AvalancheExposure';
+import { Clock, Train, Star, AlertTriangle, ArrowRight, ShieldCheck, Footprints, Loader2, CircleSlash, Timer } from 'lucide-react';
 
 interface TourCardProps {
   tour: SkiTour;
@@ -33,6 +35,7 @@ export const TourCard: React.FC<TourCardProps> = ({
   onRetry
 }) => {
   const risk = getTourAvalancheRisk(tour, avalancheRegions);
+  const time = estimateTourTime(tour);
 
   const handleStarClick = (e: React.MouseEvent, star: number) => {
     e.stopPropagation();
@@ -68,11 +71,18 @@ export const TourCard: React.FC<TourCardProps> = ({
       </div>
 
       {/* GPX metrics */}
-      <div className="grid grid-cols-4 gap-1.5 bg-slate-50/80 p-2 rounded-xl mb-3 text-center border border-slate-100">
+      <div className="grid grid-cols-4 gap-1.5 bg-slate-50/80 p-2 rounded-xl mb-1.5 text-center border border-slate-100">
         <Metric label="Start" value={`${tour.startElevation} m`} />
         <Metric label="Gipfel" value={`${tour.peakElevation} m`} />
         <Metric label="Aufstieg" value={`+${tour.elevationGain} hm`} accent />
         <Metric label="Distanz" value={`${tour.distanceKm} km`} />
+      </div>
+      <div className="flex items-center justify-between mb-2.5 px-0.5 text-[11px]">
+        <span className="flex items-center space-x-1 text-slate-600" title={TOUR_TIME_HINT}>
+          <Timer className="w-3 h-3 text-slate-400" />
+          <span>Tour ca. <strong className="text-slate-800">↑ {formatHM(time.ascentMinutes)}</strong> · ↓ {formatHM(time.descentMinutes)} h</span>
+        </span>
+        <ExposureBadge value={tour.avalancheExposure} />
       </div>
 
       {/* Transit (Transitous snapshot only) */}

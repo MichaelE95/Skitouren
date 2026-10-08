@@ -353,16 +353,41 @@ export const AlpineMap: React.FC<AlpineMapProps> = ({
   }, [tours, selectedTour, selectedJourney, origin]);
 
   // Fit the view to the selected tour (track + final walk)
-  useEffect(() => {
+  const fitToSelection = (duration = 800) => {
     const map = mapRef.current;
-    if (!map || !selectedTour) return;
-    const pts = [...selectedTour.track, ...(finalWalkGeometry(selectedJourney) ?? [])];
+    const { tour, journey } = selectionRef.current;
+    if (!map || !tour) return;
+    const container = map.getContainer();
+    if (container.clientWidth === 0 || container.clientHeight === 0) return; // hidden (phone list view)
+    const pts = [...tour.track, ...(finalWalkGeometry(journey) ?? [])];
     const bounds = pts.reduce(
       (b, p) => b.extend(p as [number, number]),
       new maplibregl.LngLatBounds(pts[0] as [number, number], pts[0] as [number, number])
     );
-    map.fitBounds(bounds, { padding: 60, maxZoom: 14, duration: 800 });
+    const pad = Math.min(60, Math.floor(Math.min(container.clientWidth, container.clientHeight) / 6));
+    map.fitBounds(bounds, { padding: pad, maxZoom: 14, duration });
+  };
+
+  useEffect(() => {
+    fitToSelection();
   }, [selectedTour?.id, selectedJourney]);
+
+  // Phones toggle the map with display:none -> resize and re-fit once it becomes visible again
+  useEffect(() => {
+    const el = mapContainer.current;
+    if (!el || typeof ResizeObserver === 'undefined') return;
+    let wasHidden = el.clientWidth === 0;
+    const ro = new ResizeObserver(() => {
+      const hidden = el.clientWidth === 0 || el.clientHeight === 0;
+      if (!hidden) {
+        mapRef.current?.resize();
+        if (wasHidden) fitToSelection(0);
+      }
+      wasHidden = hidden;
+    });
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
 
   return (
     <div className="relative w-full h-full overflow-hidden select-none">

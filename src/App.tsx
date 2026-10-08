@@ -14,14 +14,15 @@ import {
   getRepoStatus, publishToGitHub, type RepoStatus
 } from './services/tourStore';
 import { formatDateTime } from './utils/format';
+import { estimateTourTime } from './utils/tourTime';
 
-import { Navbar } from './components/Header/Navbar';
+import { Navbar, DepartureInput, RegionalToggle } from './components/Header/Navbar';
 import { AlpineMap } from './components/Map/AlpineMap';
 import { FilterSidebar } from './components/Filters/FilterSidebar';
 import { TourCard } from './components/Tours/TourCard';
 import { TourDetailPanel } from './components/Tours/TourDetailPanel';
 import { AddTourModal } from './components/Tours/AddTourModal';
-import { Mountain, Loader2, SlidersHorizontal, List, AlertTriangle, Plus } from 'lucide-react';
+import { Mountain, Loader2, SlidersHorizontal, List, AlertTriangle, Plus, Map as MapIcon } from 'lucide-react';
 
 export const App: React.FC = () => {
   // --- Tours (public/tours/tours.json) ---
@@ -44,7 +45,7 @@ export const App: React.FC = () => {
   const [selectedTourId, setSelectedTourId] = useState<string | null>(null);
   const [leftPanelView, setLeftPanelView] = useState<'list' | 'filters'>('list');
   const [isAddTourModalOpen, setIsAddTourModalOpen] = useState(false);
-  const [mobileView, setMobileView] = useState<'map' | 'list'>('map');
+  const [mobileView, setMobileView] = useState<'map' | 'panel'>('panel'); // phones only
   const [filters, setFilters] = useState<FilterState>(DEFAULT_FILTERS);
   const [avalancheRegions, setAvalancheRegions] = useState<AvalancheRegion[]>(FALLBACK_AVALANCHE_REGIONS);
 
@@ -165,12 +166,15 @@ export const App: React.FC = () => {
         if (tour.elevationGain > filters.maxElevationGain) return false;
         if (filters.selectedDifficulties.length && !filters.selectedDifficulties.includes(sacCategory(tour.difficulty))) return false;
         if (filters.selectedRanges.length && (!tour.mountainRange || !filters.selectedRanges.includes(tour.mountainRange))) return false;
+        if (filters.maxAvalancheExposure < 5 && tour.avalancheExposure && tour.avalancheExposure > filters.maxAvalancheExposure) return false; // unrated -> stays visible
         return true;
       })
       .sort((a, b) => {
         switch (filters.sortBy) {
           case 'transitTime':
             return (durationOf(a) ?? Infinity) - (durationOf(b) ?? Infinity);
+          case 'tourTime':
+            return estimateTourTime(a).totalMinutes - estimateTourTime(b).totalMinutes;
           case 'elevationGain':
             return b.elevationGain - a.elevationGain;
           case 'rating':
@@ -221,10 +225,8 @@ export const App: React.FC = () => {
   const selectedJourney = selectedResult && selectedResult.ok ? selectedResult.best : undefined;
 
   return (
-    <div className="flex flex-col h-screen w-screen overflow-hidden bg-slate-100 font-sans antialiased text-slate-800">
+    <div className="flex flex-col h-screen h-[100dvh] w-full overflow-hidden bg-slate-100 font-sans antialiased text-slate-800">
       <Navbar
-        mobileView={mobileView}
-        setMobileView={setMobileView}
         isFilterDrawerOpen={leftPanelView === 'filters' && !selectedTour}
         toggleFilterDrawer={() => {
           setSelectedTourId(null);
@@ -243,21 +245,17 @@ export const App: React.FC = () => {
         onExport={canWriteToRepo ? handlePublish : () => exportOverlay()}
         exportPending={canWriteToRepo ? pushPending : exportPending}
         exportBusy={publishing}
-        exportLabel={
-          canWriteToRepo
-            ? publishing ? 'Pushing…' : pushPending ? 'Export → GitHub (ausstehend)' : 'Export → GitHub'
-            : undefined
-        }
+        exportLabel={canWriteToRepo ? 'Export → GitHub' : 'Export'}
         exportTitle={
           canWriteToRepo
-            ? 'Commit public/tours/ and push to GitHub – the website redeploys automatically'
-            : undefined
+            ? `Commit public/tours/ and push to GitHub – the website redeploys automatically${pushPending ? ' (unpublished changes)' : ''}`
+            : `Download tours.json and new GPX files to commit them to the repo${exportPending ? ' (changes not in the repo yet)' : ''}`
         }
       />
 
       {publishMsg && (
         <div
-          className={`fixed top-[4.5rem] right-4 z-50 max-w-md whitespace-pre-wrap rounded-xl border px-4 py-2.5 text-xs shadow-lg ${
+          className={`fixed top-16 md:top-[4.5rem] left-3 right-3 md:left-auto md:right-4 z-50 md:max-w-md whitespace-pre-wrap rounded-xl border px-4 py-2.5 text-xs shadow-lg ${
             publishMsg.ok ? 'bg-emerald-50 border-emerald-300 text-emerald-800' : 'bg-rose-50 border-rose-300 text-rose-800'
           }`}
         >
@@ -266,11 +264,11 @@ export const App: React.FC = () => {
         </div>
       )}
 
-      <div className="flex-1 flex overflow-hidden relative">
-        {/* Single left panel: tour details OR filters OR tour list */}
+      <div className="flex-1 min-h-0 flex overflow-hidden relative">
+        {/* Single left panel: tour details OR filters OR tour list (phones: full screen, tab "Touren"/"Filter") */}
         <div
-          className={`w-full md:w-96 lg:w-[420px] h-full shrink-0 flex flex-col bg-white border-r border-slate-200/80 z-20 shadow-md ${
-            mobileView === 'list' ? 'block' : 'hidden md:flex'
+          className={`w-full md:w-96 lg:w-[420px] h-full shrink-0 flex-col bg-white border-r border-slate-200/80 z-20 shadow-md ${
+            mobileView === 'panel' ? 'flex' : 'hidden md:flex'
           }`}
         >
           {selectedTour ? (
@@ -286,6 +284,7 @@ export const App: React.FC = () => {
               onSave={handleSaveTour}
               onDelete={handleDeleteTour}
               onRetry={calculateOne}
+              onShowMap={() => setMobileView('map')}
             />
           ) : leftPanelView === 'filters' ? (
             <div className="flex flex-col h-full">
@@ -310,6 +309,12 @@ export const App: React.FC = () => {
                   filteredToursCount={filteredTours.length}
                   origin={snapshot?.params.origin ?? origin}
                   onCloseMobile={() => setLeftPanelView('list')}
+                  travelControls={
+                    <div className="flex flex-wrap gap-2">
+                      <DepartureInput value={departureLocal} onChange={setDepartureLocal} light />
+                      <RegionalToggle value={onlyRegional} onChange={setOnlyRegional} light />
+                    </div>
+                  }
                 />
               </div>
             </div>
@@ -410,19 +415,81 @@ export const App: React.FC = () => {
             tours={filteredTours}
             selectedTour={selectedTour}
             selectedJourney={selectedJourney}
-            onSelectTour={t => setSelectedTourId(t.id)}
+            onSelectTour={t => {
+              // Phones: a tap on the map only selects (track + fit); the "Touren" tab then shows its details.
+              setSelectedTourId(t.id);
+            }}
             avalancheRegions={avalancheRegions}
             origin={origin}
           />
+          {selectedTour && (
+            <button
+              onClick={() => setMobileView('panel')}
+              className="md:hidden absolute bottom-3 left-1/2 -translate-x-1/2 z-20 px-4 py-2 rounded-full bg-slate-900/90 text-white text-xs font-bold shadow-lg max-w-[85%] truncate"
+            >
+              {selectedTour.peakName} – Details
+            </button>
+          )}
         </div>
 
         <AddTourModal
           isOpen={isAddTourModalOpen}
-          existingIds={tours.map(t => t.id)}
+          existingTours={tours}
           onClose={() => setIsAddTourModalOpen(false)}
           onSave={handleAddTour}
         />
       </div>
+
+      {/* Phones only: bottom tab bar */}
+      <nav className="md:hidden shrink-0 grid grid-cols-4 bg-white border-t border-slate-200 text-[11px] font-semibold pb-[env(safe-area-inset-bottom)]">
+        <TabButton
+          active={mobileView === 'map'}
+          onClick={() => setMobileView('map')}
+          icon={<MapIcon className="w-5 h-5" />}
+          label="Karte"
+        />
+        <TabButton
+          active={mobileView === 'panel' && (!!selectedTour || leftPanelView === 'list')}
+          onClick={() => {
+            if (mobileView === 'panel' && selectedTour) setSelectedTourId(null); // second tap: back to the list
+            setLeftPanelView('list');
+            setMobileView('panel');
+          }}
+          icon={<List className="w-5 h-5" />}
+          label={`Touren (${filteredTours.length})`}
+        />
+        <TabButton
+          active={mobileView === 'panel' && !selectedTour && leftPanelView === 'filters'}
+          onClick={() => {
+            setSelectedTourId(null);
+            setLeftPanelView('filters');
+            setMobileView('panel');
+          }}
+          icon={<SlidersHorizontal className="w-5 h-5" />}
+          label="Filter"
+        />
+        <TabButton
+          active={false}
+          onClick={() => setIsAddTourModalOpen(true)}
+          icon={<Plus className="w-5 h-5" />}
+          label="Tour"
+        />
+      </nav>
     </div>
   );
 };
+
+const TabButton: React.FC<{ active: boolean; onClick: () => void; icon: React.ReactNode; label: string }> = ({
+  active,
+  onClick,
+  icon,
+  label
+}) => (
+  <button
+    onClick={onClick}
+    className={`flex flex-col items-center justify-center py-1.5 space-y-0.5 ${active ? 'text-alpine-700' : 'text-slate-500'}`}
+  >
+    {icon}
+    <span className="truncate max-w-full px-1">{label}</span>
+  </button>
+);

@@ -2,11 +2,14 @@ import React, { useRef, useState } from 'react';
 import { SkiTour, SAC_GRADES, SACGrade } from '../../types';
 import { parseGpxString, ParsedGpxResult, slugify } from '../../utils/gpxParser';
 import { lookupMountainRange } from '../../services/peakLookup';
+import { findLikelyDuplicates, DuplicateMatch } from '../../utils/duplicates';
+import { estimateTourTime, formatHM } from '../../utils/tourTime';
+import { ExposurePicker } from './AvalancheExposure';
 import { X, Upload, Loader2, AlertTriangle, CheckCircle2, Save } from 'lucide-react';
 
 interface AddTourModalProps {
   isOpen: boolean;
-  existingIds: string[];
+  existingTours: SkiTour[];
   onClose: () => void;
   /** Persists the tour + original GPX; resolves when saved. */
   onSave: (tour: SkiTour, gpxText: string) => Promise<void>;
@@ -16,7 +19,7 @@ interface AddTourModalProps {
  * Only the GPX is required. Metrics and the name come from the GPX (name editable);
  * the Gebirgsgruppe is looked up on Wikidata in the background (optional).
  */
-export const AddTourModal: React.FC<AddTourModalProps> = ({ isOpen, existingIds, onClose, onSave }) => {
+export const AddTourModal: React.FC<AddTourModalProps> = ({ isOpen, existingTours, onClose, onSave }) => {
   const [gpxText, setGpxText] = useState<string | null>(null);
   const [fileName, setFileName] = useState('');
   const [parsed, setParsed] = useState<ParsedGpxResult | null>(null);
@@ -24,11 +27,13 @@ export const AddTourModal: React.FC<AddTourModalProps> = ({ isOpen, existingIds,
   const [lookupBusy, setLookupBusy] = useState(false);
   const [warnings, setWarnings] = useState<string[]>([]);
   const [rangeSource, setRangeSource] = useState<string | null>(null);
+  const [duplicates, setDuplicates] = useState<DuplicateMatch[]>([]);
 
   const [peakName, setPeakName] = useState('');
   const [mountainRange, setMountainRange] = useState('');
   const [difficulty, setDifficulty] = useState<SACGrade>('WS');
   const [isPiste, setIsPiste] = useState(false);
+  const [avalancheExposure, setAvalancheExposure] = useState<number | null>(null);
   const [skitourenguruUrl, setSkitourenguruUrl] = useState('');
   const [notes, setNotes] = useState('');
 
@@ -38,12 +43,13 @@ export const AddTourModal: React.FC<AddTourModalProps> = ({ isOpen, existingIds,
   const lookupIdRef = useRef(0);
 
   if (!isOpen) return null;
+  const existingIds = existingTours.map(t => t.id);
 
   const reset = () => {
     lookupIdRef.current++;
     setGpxText(null); setFileName(''); setParsed(null); setParseError(null); setWarnings([]); setRangeSource(null);
-    setLookupBusy(false);
-    setPeakName(''); setMountainRange(''); setDifficulty('WS'); setIsPiste(false);
+    setLookupBusy(false); setDuplicates([]);
+    setPeakName(''); setMountainRange(''); setDifficulty('WS'); setIsPiste(false); setAvalancheExposure(null);
     setSkitourenguruUrl(''); setNotes(''); setSaveError(null);
   };
 
@@ -63,6 +69,7 @@ export const AddTourModal: React.FC<AddTourModalProps> = ({ isOpen, existingIds,
     setGpxText(text);
     setParsed(result);
     setPeakName(result.nameFromFile);
+    setDuplicates(findLikelyDuplicates(result, existingTours));
 
     // Optional, non-blocking Gebirgsgruppe lookup
     const id = ++lookupIdRef.current;
@@ -98,6 +105,7 @@ export const AddTourModal: React.FC<AddTourModalProps> = ({ isOpen, existingIds,
       isPiste,
       skitourenguruUrl: skitourenguruUrl.trim() || undefined,
       rating: null,
+      avalancheExposure,
       notes: notes.trim()
     };
     setSaving(true);
@@ -143,6 +151,23 @@ export const AddTourModal: React.FC<AddTourModalProps> = ({ isOpen, existingIds,
 
           {parsed && (
             <>
+              {duplicates.length > 0 && (
+                <div className="p-2.5 rounded-lg bg-amber-50 border border-amber-300 text-amber-800 space-y-1">
+                  <div className="flex items-center space-x-1.5 font-bold">
+                    <AlertTriangle className="w-4 h-4 shrink-0" />
+                    <span>Diese Tour gibt es wahrscheinlich schon:</span>
+                  </div>
+                  <ul className="list-disc pl-6">
+                    {duplicates.map(d => (
+                      <li key={d.tour.id}>
+                        <strong>{d.tour.peakName}</strong> (Gipfel {d.summitDistanceM} m, Einstieg {d.trailheadDistanceM} m entfernt)
+                      </li>
+                    ))}
+                  </ul>
+                  <div className="text-[10px]">You can still save it, e.g. if it's a different route.</div>
+                </div>
+              )}
+
               <div>
                 <div className="text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1">Aus dem GPX</div>
                 <div className="grid grid-cols-4 gap-1.5 bg-slate-50 p-2.5 rounded-xl text-center border border-slate-100">
@@ -153,6 +178,7 @@ export const AddTourModal: React.FC<AddTourModalProps> = ({ isOpen, existingIds,
                 </div>
                 <div className="mt-1 text-[10px] text-slate-400">
                   Trailhead {parsed.trailhead[1].toFixed(5)}, {parsed.trailhead[0].toFixed(5)}
+                  {' · '}Tour ca. ↑ {formatHM(estimateTourTime(parsed).ascentMinutes)} · ↓ {formatHM(estimateTourTime(parsed).descentMinutes)} h
                 </div>
               </div>
 
@@ -191,6 +217,10 @@ export const AddTourModal: React.FC<AddTourModalProps> = ({ isOpen, existingIds,
                     </label>
                   </F>
                 </div>
+                <div>
+                  <span className="block text-[11px] font-semibold text-slate-600 mb-0.5">Lawinenexposition (optional, ATES-basiert)</span>
+                  <ExposurePicker value={avalancheExposure} onChange={setAvalancheExposure} />
+                </div>
                 <F label="Skitourenguru-Link (optional)">
                   <input className="input" value={skitourenguruUrl} onChange={e => setSkitourenguruUrl(e.target.value)} placeholder="https://www.skitourenguru.ch/…" />
                 </F>
@@ -212,7 +242,7 @@ export const AddTourModal: React.FC<AddTourModalProps> = ({ isOpen, existingIds,
             className="px-4 py-2 rounded-xl bg-alpine-600 hover:bg-alpine-700 text-white text-xs font-bold flex items-center space-x-1.5 disabled:opacity-50"
           >
             {saving ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5" />}
-            <span>Tour speichern</span>
+            <span>{duplicates.length > 0 ? 'Trotzdem speichern' : 'Tour speichern'}</span>
           </button>
         </div>
       </div>
